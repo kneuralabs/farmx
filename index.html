@@ -4,7 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>FarmX™ — Platform Preview</title>
+<meta name="description" content="FarmX™ — interactive preview of a relational marketplace connecting agritourism enterprises with vetted vendors. Roots &amp; Routes / TerraIntel360™.">
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#1E2B22">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8C%BE%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
 <style>
   :root{ --soil:#1E2B22; --field:#F2F1E9; --forest:#2C4A3B; --gold:#C9A227; --barn:#8C3B2E; --ink:#1C2620; --paper:#FBFAF6; --line:#D9D6C8; --radius:4px; --sp-1:8px; --sp-2:14px; --sp-3:22px; --sp-4:32px; --shadow-sm:0 1px 3px rgba(28,38,32,.06); --shadow-md:0 6px 18px rgba(28,38,32,.08); --ease:cubic-bezier(.2,.7,.3,1); }
@@ -134,19 +139,19 @@
 </head>
 <body>
 
-<div class="topbar">
-  <div class="brand"><span class="stamp">Fx</span>FarmX™</div>
-  <div class="role-switch" id="roleSwitch">
-    <button data-view="enterprise" class="active">Enterprise</button>
-    <button data-view="vendor">Vendor</button>
-    <button data-view="admin">Admin</button>
-    <button data-view="guide">Guide</button>
+<header class="topbar">
+  <h1 class="brand"><span class="stamp" aria-hidden="true">Fx</span>FarmX™</h1>
+  <div class="role-switch" id="roleSwitch" role="tablist" aria-label="Select role view">
+    <button id="tab-enterprise" role="tab" data-view="enterprise" aria-controls="enterprise" aria-selected="true" class="active">Enterprise</button>
+    <button id="tab-vendor" role="tab" data-view="vendor" aria-controls="vendor" aria-selected="false" tabindex="-1">Vendor</button>
+    <button id="tab-admin" role="tab" data-view="admin" aria-controls="admin" aria-selected="false" tabindex="-1">Admin</button>
+    <button id="tab-guide" role="tab" data-view="guide" aria-controls="guide" aria-selected="false" tabindex="-1">Guide</button>
   </div>
-</div>
+</header>
 
 <main>
 
-  <section class="view active" id="enterprise">
+  <section class="view active" id="enterprise" role="tabpanel" aria-labelledby="tab-enterprise" tabindex="0">
     <div class="view-head"><div><div class="eyebrow">Enterprise Dashboard</div><h2>Bramblewood Orchard &amp; Cidery</h2></div><div class="subtle">Enterprise ID <span class="mono">FX-0142</span></div></div>
     <div class="stats" id="entStats"></div>
 
@@ -187,7 +192,7 @@
     </div>
   </section>
 
-  <section class="view" id="vendor">
+  <section class="view" id="vendor" role="tabpanel" aria-labelledby="tab-vendor" tabindex="0">
     <div class="view-head"><div><div class="eyebrow">Vendor Directory</div><h2>Find &amp; Manage Vendors</h2></div><div class="subtle" id="vendorCountLbl">0 vendors listed</div></div>
     <div class="search-bar"><input type="text" id="vSearch" placeholder="Search vendors, e.g. 'live music' or 'caterer'"></div>
     <div class="vendor-grid" id="vendorGrid"></div>
@@ -216,7 +221,7 @@
     </div>
   </section>
 
-  <section class="view" id="admin">
+  <section class="view" id="admin" role="tabpanel" aria-labelledby="tab-admin" tabindex="0">
     <div class="view-head"><div><div class="eyebrow">Administrator</div><h2>Platform Oversight</h2></div><div class="subtle">MAMPF MVP — Maryland Pilot Region</div></div>
     <div class="stats" id="adminStats"></div>
 
@@ -257,7 +262,7 @@
     </div>
   </section>
 
-  <section class="view" id="guide">
+  <section class="view" id="guide" role="tabpanel" aria-labelledby="tab-guide" tabindex="0">
     <div class="view-head"><div><div class="eyebrow">Getting Started</div><h2>How to Use This Preview</h2></div></div>
     <div class="card"><h3>Switching Roles</h3><p class="subtle">Use the pill switcher at the top to move between dashboards. This is a connected prototype: actions in one role update the others in real time — try requesting a booking as Enterprise, then check the Vendor and Admin tabs.</p></div>
     <div class="card"><h3>Enterprise Dashboard</h3><div class="steps">
@@ -283,6 +288,14 @@
 <div class="toast" id="toast"></div>
 
 <script>
+(function(){
+'use strict';
+
+// Escape untrusted strings before they touch innerHTML. Every record field below
+// is user-editable (vendor profile, booking text, document metadata, activity log),
+// so anything interpolated into markup must pass through esc() to stay inert.
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
 let nextId=100;
 let VENDORS=[
  {id:1,name:'Sourwood Sound Co.',cat:'Musicians',desc:'Bluegrass and acoustic sets for orchard and vineyard events. Fully insured.',stage:'preferred'},
@@ -317,16 +330,17 @@ function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg
 function bClass(s){ return (s==='confirmed'||s==='active'||s==='preferred')?'active':(s==='pending'||s==='onboarding')?'pending':'due'; }
 function bLabel(s){ return {confirmed:'Confirmed',pending:'Awaiting Reply',declined:'Declined',due:'Renew',active:'Current',preferred:'Preferred',archived:'Archived',rejected:'Rejected'}[s]||s; }
 
-let highlight=null; // {type,id} of the record that just changed — only it animates
-function hi(type,id){ return highlight&&highlight.type===type&&highlight.id===id?' pop':''; }
-function actions(type,id,name){ return `<div class="actions"><button class="icon-btn" data-edit="${type}:${id}" aria-label="Edit ${name}" title="Edit">✎</button><button class="icon-btn del" data-del="${type}:${id}" aria-label="Delete ${name}" title="Delete">✕</button></div>`; }
+let highlight=null; // {type,id} of the record that just changed — only it animates (set per renderAll pass)
+function hiCls(type,id,cls){ return highlight&&highlight.type===type&&highlight.id===id?' '+cls:''; }
+function badge(status){ return `<span class="badge ${bClass(status)}">${esc(bLabel(status))}</span>`; }
+function actions(type,id,name){ const n=esc(name); return `<div class="actions"><button class="icon-btn" data-edit="${type}:${id}" aria-label="Edit ${n}" title="Edit">✎</button><button class="icon-btn del" data-del="${type}:${id}" aria-label="Delete ${n}" title="Delete">✕</button></div>`; }
 
 function renderLedger(){
   const stages=[['preferred','Preferred'],['active','Active'],['pending','Pending'],['archived','Archived']];
   document.getElementById('ledger').innerHTML=stages.map(([key,label])=>{
     const items=VENDORS.filter(v=>v.stage===key);
     return `<div class="lcol"><div class="lcol-head"><span>${label}</span><span class="count">${items.length}</span></div>`+
-      (items.length?items.map(v=>`<div class="lcard${hi('vendor',v.id)}"><div class="vname">${v.name}</div><div class="vtype">${v.cat}</div>${actions('vendor',v.id,v.name)}</div>`).join(''):'<div class="empty" style="margin:0 10px;">No vendors</div>')+
+      (items.length?items.map(v=>`<div class="lcard${hiCls('vendor',v.id,'pop')}"><div class="vname">${esc(v.name)}</div><div class="vtype">${esc(v.cat)}</div>${actions('vendor',v.id,v.name)}</div>`).join(''):'<div class="empty" style="margin:0 10px;">No vendors</div>')+
       `</div>`;
   }).join('');
 }
@@ -337,9 +351,10 @@ function renderVendorGrid(filter){
   document.getElementById('vendorGrid').innerHTML=list.map(v=>{
     const active=v.stage==='preferred'||v.stage==='active';
     const cta=active?'Request Booking':v.stage==='archived'?'Reconnect':'Send Invitation';
-    return `<div class="vcard${hi('vendor',v.id)}">
-      <div class="vtop"><div class="avatar">${v.name[0]}</div>${v.stage!=='archived'?`<span class="badge ${bClass(v.stage)}">${bLabel(v.stage)}</span>`:''}${actions('vendor',v.id,v.name)}</div>
-      <h4>${v.name}</h4><div class="cat">${v.cat}</div><div class="desc">${v.desc}</div>
+    const initial=esc((v.name||'').trim().charAt(0).toUpperCase()||'?');
+    return `<div class="vcard${hiCls('vendor',v.id,'pop')}">
+      <div class="vtop"><div class="avatar" aria-hidden="true">${initial}</div>${v.stage!=='archived'?badge(v.stage):''}${actions('vendor',v.id,v.name)}</div>
+      <h4>${esc(v.name)}</h4><div class="cat">${esc(v.cat)}</div><div class="desc">${esc(v.desc)}</div>
       <button class="btn small ${active?'solid':''}" data-book="${v.id}">${cta}</button>
     </div>`;}).join('')||'<div class="empty">No vendors match your search.</div>';
 }
@@ -347,17 +362,17 @@ function renderBookings(){
   document.getElementById('bookingCount').textContent=BOOKINGS.length;
   document.getElementById('bookingsRow').innerHTML=BOOKINGS.map(b=>{
     const v=VENDORS.find(x=>x.id===b.vendorId);
-    return `<div class="row${hi('booking',b.id)}"><div><div class="name">${v?v.name:'Unknown Vendor'}</div><div class="meta">${b.event}</div></div><span class="badge ${bClass(b.status)}">${bLabel(b.status)}</span>${actions('booking',b.id,b.event)}</div>`;
+    return `<div class="row${hiCls('booking',b.id,'pop')}"><div><div class="name">${esc(v?v.name:'Unknown Vendor')}</div><div class="meta">${esc(b.event)}</div></div>${badge(b.status)}${actions('booking',b.id,b.event)}</div>`;
   }).join('')||'<div class="empty">No bookings yet.</div>';
 }
 function renderDocs(){
-  document.getElementById('docsRow').innerHTML=DOCS.map(d=>`<div class="row${hi('doc',d.id)}"><div><div class="name">${d.name}</div><div class="meta">${d.meta}</div></div><span class="badge ${bClass(d.status)}">${bLabel(d.status)}</span>${actions('doc',d.id,d.name)}</div>`).join('')||'<div class="empty">No documents.</div>';
+  document.getElementById('docsRow').innerHTML=DOCS.map(d=>`<div class="row${hiCls('doc',d.id,'pop')}"><div><div class="name">${esc(d.name)}</div><div class="meta">${esc(d.meta)}</div></div>${badge(d.status)}${actions('doc',d.id,d.name)}</div>`).join('')||'<div class="empty">No documents.</div>';
 }
 function renderEntTable(){
-  document.getElementById('entTable').innerHTML=ENTERPRISES.map(e=>`<tr class="${hi('enterprise',e.id).trim().replace('pop','flash')}"><td>${e.name}</td><td>${e.type}</td><td><span class="badge ${bClass(e.status)}">${bLabel(e.status)}</span></td><td>${actions('enterprise',e.id,e.name)}</td></tr>`).join('')||'<tr><td colspan="4" class="empty">No enterprises.</td></tr>';
+  document.getElementById('entTable').innerHTML=ENTERPRISES.map(e=>`<tr class="${hiCls('enterprise',e.id,'flash').trim()}"><td>${esc(e.name)}</td><td>${esc(e.type)}</td><td>${badge(e.status)}</td><td>${actions('enterprise',e.id,e.name)}</td></tr>`).join('')||'<tr><td colspan="4" class="empty">No enterprises.</td></tr>';
 }
 function renderActivity(){
-  document.getElementById('activityFeed').innerHTML=ACTIVITY.length?ACTIVITY.map(a=>`<div class="row"><div class="name">${a.msg}</div><div class="meta">${a.time}</div></div>`).join(''):'<div class="empty">No activity yet — try requesting a booking as Enterprise.</div>';
+  document.getElementById('activityFeed').innerHTML=ACTIVITY.length?ACTIVITY.map(a=>`<div class="row"><div class="name">${esc(a.msg)}</div><div class="meta">${esc(a.time)}</div></div>`).join(''):'<div class="empty">No activity yet — try requesting a booking as Enterprise.</div>';
 }
 let prevStats={};
 function statBlock(id,label,val){ const changed=prevStats[id]!==undefined&&prevStats[id]!==val; prevStats[id]=val; return `<div class="stat${changed?' flash':''}"><div class="num">${val}</div><div class="lbl">${label}</div></div>`; }
@@ -377,7 +392,7 @@ let lastProfileVendorId=null;
 function refreshSelect(id,list,valFn,labelFn,emptyLabel){
   const el=document.getElementById(id);
   const prev=el.value;
-  el.innerHTML=list.length?list.map(item=>`<option value="${valFn(item)}">${labelFn(item)}</option>`).join(''):`<option value="">${emptyLabel}</option>`;
+  el.innerHTML=list.length?list.map(item=>`<option value="${esc(valFn(item))}">${esc(labelFn(item))}</option>`).join(''):`<option value="">${esc(emptyLabel)}</option>`;
   if(list.some(item=>String(valFn(item))===prev)) el.value=prev;
 }
 function renderSelects(){
@@ -395,7 +410,11 @@ function fillProfileForm(){
   document.getElementById('v-cat').value=v.cat;
   document.getElementById('v-desc').value=v.desc;
 }
-function renderAll(){ renderLedger(); renderVendorGrid(document.getElementById('vSearch').value); renderBookings(); renderDocs(); renderEntTable(); renderActivity(); renderStats(); renderSelects(); }
+function renderAll(hl){
+  highlight = hl || null; // scope the pop/flash animation to the one record that changed
+  renderLedger(); renderVendorGrid(document.getElementById('vSearch').value); renderBookings(); renderDocs(); renderEntTable(); renderActivity(); renderStats(); renderSelects();
+  highlight = null;
+}
 
 function delRec(type,id){
   const t=TYPES[type]; const arr=t.arr(); const idx=arr.findIndex(r=>r.id===id);
@@ -413,22 +432,34 @@ function editRec(type,id){
   if(!rec) return;
   const key=type==='booking'?'event':'name';
   const val=prompt('Edit '+t.label+':',rec[key]);
-  if(val){ rec[key]=val; log(t.label+' updated: '+val); toast(t.label+' updated'); renderAll(); }
+  if(val){ rec[key]=val; log(t.label+' updated: '+val); toast(t.label+' updated'); renderAll({type,id}); }
 }
 
-document.getElementById('roleSwitch').addEventListener('click',e=>{
-  const b=e.target.closest('button'); if(!b) return;
-  document.querySelectorAll('#roleSwitch button').forEach(x=>x.classList.remove('active'));
-  b.classList.add('active');
+const roleSwitch=document.getElementById('roleSwitch');
+const tabs=[...roleSwitch.querySelectorAll('button[role="tab"]')];
+function selectTab(btn,focus){
+  if(!btn) return;
+  tabs.forEach(t=>{ const on=t===btn; t.classList.toggle('active',on); t.setAttribute('aria-selected',on?'true':'false'); t.tabIndex=on?0:-1; });
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
-  document.getElementById(b.dataset.view).classList.add('active');
+  document.getElementById(btn.dataset.view).classList.add('active');
+  if(focus) btn.focus();
+}
+roleSwitch.addEventListener('click',e=>{ selectTab(e.target.closest('button[role="tab"]')); });
+roleSwitch.addEventListener('keydown',e=>{
+  const i=tabs.indexOf(document.activeElement); if(i<0) return;
+  let n=null;
+  if(e.key==='ArrowRight'||e.key==='ArrowDown') n=(i+1)%tabs.length;
+  else if(e.key==='ArrowLeft'||e.key==='ArrowUp') n=(i-1+tabs.length)%tabs.length;
+  else if(e.key==='Home') n=0;
+  else if(e.key==='End') n=tabs.length-1;
+  if(n!==null){ e.preventDefault(); selectTab(tabs[n],true); }
 });
 
 document.addEventListener('click',e=>{
   const d=e.target.closest('[data-del]'); if(d){ const [type,id]=d.dataset.del.split(':'); delRec(type,+id); return; }
   const ed=e.target.closest('[data-edit]'); if(ed){ const [type,id]=ed.dataset.edit.split(':'); editRec(type,+id); return; }
   const bk=e.target.closest('[data-book]'); if(bk){
-    document.querySelector('#roleSwitch button[data-view="enterprise"]').click();
+    selectTab(document.getElementById('tab-enterprise'));
     document.getElementById('e-vendor').value=bk.dataset.book;
     document.getElementById('e-service').focus();
   }
@@ -443,19 +474,21 @@ document.getElementById('bookingForm').addEventListener('submit',e=>{
   const v=VENDORS.find(x=>x.id===vId);
   const service=document.getElementById('e-service').value;
   const date=document.getElementById('e-date').value;
-  BOOKINGS.push({id:nextId++,vendorId:vId,event:service+' — '+date,status:'pending'});
+  const id=nextId++;
+  BOOKINGS.push({id,vendorId:vId,event:service+' — '+date,status:'pending'});
   log('Booking requested: '+(v?v.name:'')+' — '+service);
   toast('Booking request sent');
-  e.target.reset(); renderAll();
+  e.target.reset(); renderAll({type:'booking',id});
 });
 document.getElementById('docForm').addEventListener('submit',e=>{
   e.preventDefault();
   const type=document.getElementById('e-doctype').value;
   const expiry=document.getElementById('e-expiry').value;
-  DOCS.push({id:nextId++,name:type,meta:expiry?('Expires '+expiry):'Pending review',status:'due'});
+  const id=nextId++;
+  DOCS.push({id,name:type,meta:expiry?('Expires '+expiry):'Pending review',status:'due'});
   log('Document uploaded: '+type);
   toast('Document submitted for review');
-  e.target.reset(); renderAll();
+  e.target.reset(); renderAll({type:'doc',id});
 });
 document.getElementById('profileForm').addEventListener('submit',e=>{
   e.preventDefault();
@@ -466,7 +499,7 @@ document.getElementById('profileForm').addEventListener('submit',e=>{
   v.desc=document.getElementById('v-desc').value||v.desc;
   log('Vendor profile updated: '+v.name);
   toast('Profile saved');
-  renderAll();
+  renderAll({type:'vendor',id:v.id});
 });
 document.getElementById('respondForm').addEventListener('submit',e=>{
   e.preventDefault();
@@ -477,7 +510,7 @@ document.getElementById('respondForm').addEventListener('submit',e=>{
   b.status=resp==='Accept'?'confirmed':resp==='Decline'?'declined':'pending';
   log('Vendor responded to '+b.event+': '+resp);
   toast('Response submitted');
-  e.target.reset(); renderAll();
+  e.target.reset(); renderAll({type:'booking',id:b.id});
 });
 document.getElementById('reviewForm').addEventListener('submit',e=>{
   e.preventDefault();
@@ -487,7 +520,7 @@ document.getElementById('reviewForm').addEventListener('submit',e=>{
   ent.status=decision==='Approve'?'active':decision==='Reject'?'rejected':'pending';
   log('Enterprise '+decision.toLowerCase()+': '+ent.name);
   toast('Decision recorded');
-  e.target.reset(); renderAll();
+  e.target.reset(); renderAll({type:'enterprise',id:ent.id});
 });
 document.getElementById('roleForm').addEventListener('submit',e=>{
   e.preventDefault();
@@ -499,6 +532,7 @@ document.getElementById('roleForm').addEventListener('submit',e=>{
 });
 
 renderAll();
+})();
 </script>
 </body>
 </html>
