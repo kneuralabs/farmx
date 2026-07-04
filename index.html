@@ -3,37 +3,247 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>FarmX MVP – Complete Working Prototype with Instructions</title>
+  <meta name="theme-color" content="#f5f5f7" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
+  <meta name="description" content="FarmX — the connected platform for farms, wineries and the vendors who work with them." />
+  <title>FarmX</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🌾%3C/text%3E%3C/svg%3E" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
   <style>
-    body { padding-top: 70px; }
-    .tab-content { margin-top: 20px; }
-    .document-card { background: #f8f9fa; border-radius: 8px; padding: 10px; margin-bottom: 10px; }
+    /* ===================================================================
+     * FarmX — design system (Apple-inspired: clarity, depth, deference)
+     * Restyles Bootstrap primitives so the JS-generated markup inherits
+     * the new look without needing to change any of the view builders.
+     * =================================================================== */
+    :root {
+      --bg: #f5f5f7;
+      --surface: #ffffff;
+      --surface-2: #f2f2f4;
+      --text: #1d1d1f;
+      --text-2: #6e6e73;
+      --line: rgba(0,0,0,.08);
+      --accent: #1e874b;
+      --accent-hover: #196b3c;
+      --accent-soft: rgba(30,135,75,.10);
+      --blue: #0071e3;
+      --red: #d70015;
+      --amber: #9a6a00;
+      --radius: 18px;
+      --radius-sm: 11px;
+      --shadow: 0 1px 2px rgba(0,0,0,.04), 0 8px 30px rgba(0,0,0,.06);
+      --nav-h: 56px;
+      --ease: cubic-bezier(.32,.72,0,1);
+      font-synthesis: none;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #000000; --surface: #1c1c1e; --surface-2: #2c2c2e;
+        --text: #f5f5f7; --text-2: #98989d; --line: rgba(255,255,255,.12);
+        --accent: #30d158; --accent-hover: #28bd4c; --accent-soft: rgba(48,209,88,.14);
+        --blue: #0a84ff; --red: #ff453a; --amber: #ffd60a;
+        --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 30px rgba(0,0,0,.5);
+      }
+    }
+
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding-top: calc(var(--nav-h) + 8px);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      letter-spacing: -.01em;
+    }
+    h1,h2,h3,h4,h5 { font-weight: 600; letter-spacing: -.022em; color: var(--text); }
+    .app-main { max-width: 1080px; margin: 0 auto; padding: 8px 22px 80px; }
+    .tab-content { margin-top: 26px; }
+    .tab-content > .tab-pane > h4 { font-size: 1.6rem; margin-bottom: 20px; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { color: var(--accent-hover); }
+    hr { border-color: var(--line); opacity: 1; margin: 28px 0; }
+    small, .small { color: var(--text-2); }
+
+    /* ---- Navigation bar (frosted glass) ---- */
+    .farmx-nav {
+      height: var(--nav-h);
+      background: color-mix(in srgb, var(--bg) 72%, transparent);
+      -webkit-backdrop-filter: saturate(180%) blur(20px);
+      backdrop-filter: saturate(180%) blur(20px);
+      border-bottom: .5px solid var(--line);
+    }
+    .farmx-nav .navbar-brand {
+      font-weight: 600; font-size: 1.15rem; color: var(--text);
+      letter-spacing: -.02em;
+    }
+    .nav-label { color: var(--text-2); font-size: .85rem; }
+    .nav-user {
+      color: var(--text-2); font-size: .74rem; background: var(--surface-2);
+      padding: 4px 10px; border-radius: 980px; white-space: nowrap;
+    }
+    .btn-guide {
+      background: var(--accent-soft); color: var(--accent); border: none;
+      font-weight: 500; border-radius: 980px; padding: 5px 14px;
+    }
+    .btn-guide:hover { background: var(--accent); color: #fff; }
+
+    /* ---- Segmented control (Bootstrap .nav-tabs) ---- */
+    .nav-tabs {
+      border: none; gap: 2px; padding: 3px;
+      background: var(--surface-2); border-radius: 13px;
+      display: inline-flex; flex-wrap: wrap;
+    }
+    .nav-tabs .nav-link {
+      border: none !important; border-radius: 10px; color: var(--text-2);
+      font-size: .9rem; font-weight: 500; padding: 6px 15px;
+      transition: color .2s var(--ease), background .2s var(--ease);
+    }
+    .nav-tabs .nav-link:hover { color: var(--text); }
+    .nav-tabs .nav-link.active {
+      background: var(--surface); color: var(--text);
+      box-shadow: 0 1px 3px rgba(0,0,0,.12);
+    }
+
+    /* ---- Cards ---- */
+    .app-main .row { --bs-gutter-y: 1.1rem; }
+    .card {
+      border: none; border-radius: var(--radius); background: var(--surface);
+      box-shadow: var(--shadow); overflow: hidden;
+      transition: transform .3s var(--ease), box-shadow .3s var(--ease);
+    }
+    .card:hover { transform: translateY(-2px); box-shadow: 0 2px 6px rgba(0,0,0,.06), 0 16px 40px rgba(0,0,0,.10); }
+    .card-body { padding: 22px 24px; }
+    .card-body h5 {
+      font-size: .78rem; text-transform: uppercase; letter-spacing: .04em;
+      color: var(--text-2); margin-bottom: 12px; font-weight: 600;
+    }
+    .card-body p { font-size: 1.02rem; color: var(--text); margin-bottom: 0; line-height: 1.5; }
+
+    /* ---- Buttons ---- */
+    .btn { border-radius: 980px; font-weight: 500; padding: 8px 18px; border: none; transition: filter .2s var(--ease), background .2s var(--ease); }
+    .btn:active { transform: scale(.98); }
+    .btn-sm { padding: 5px 13px; font-size: .84rem; }
+    .btn-success, .btn-primary { background: var(--accent); color: #fff; }
+    .btn-success:hover, .btn-primary:hover { background: var(--accent-hover); color: #fff; }
+    .btn-outline-primary { background: var(--surface-2); color: var(--accent); }
+    .btn-outline-primary:hover { background: var(--accent); color: #fff; }
+    .btn-secondary { background: var(--surface-2); color: var(--text); }
+    .btn-secondary:hover { background: var(--line); color: var(--text); }
+    .btn-danger { background: var(--red); color: #fff; }
+    .btn-danger:hover { filter: brightness(.92); color: #fff; }
+    .btn-light { background: var(--surface); color: var(--text); }
+
+    /* ---- Forms ---- */
+    .form-control, .form-select {
+      border: 1px solid var(--line); border-radius: var(--radius-sm);
+      background: var(--surface); color: var(--text);
+      padding: 9px 13px; font-size: .95rem;
+      transition: border-color .2s var(--ease), box-shadow .2s var(--ease);
+    }
+    .form-control::placeholder { color: var(--text-2); }
+    .form-control:focus, .form-select:focus {
+      border-color: var(--accent); background: var(--surface);
+      box-shadow: 0 0 0 3.5px var(--accent-soft); color: var(--text);
+    }
+    .form-select-sm { border-radius: 9px; }
+    label { font-size: .82rem; color: var(--text-2); font-weight: 500; margin-bottom: 4px; }
+
+    /* ---- Tables ---- */
+    .table {
+      --bs-table-bg: transparent; color: var(--text); margin-bottom: 0;
+      background: var(--surface); border-radius: var(--radius);
+      overflow: hidden; box-shadow: var(--shadow);
+    }
+    .table thead th {
+      border: none; background: transparent; color: var(--text-2);
+      font-size: .72rem; text-transform: uppercase; letter-spacing: .04em;
+      font-weight: 600; padding: 14px 18px;
+    }
+    .table tbody td { border: none; border-top: .5px solid var(--line); padding: 14px 18px; vertical-align: middle; }
+    .table tbody tr:hover td { background: var(--accent-soft); }
+
+    /* ---- Badges & alerts ---- */
+    .badge { font-weight: 500; font-size: .74rem; padding: 5px 11px; border-radius: 980px; }
+    .badge.bg-info { background: var(--accent-soft) !important; color: var(--accent) !important; }
+    .alert {
+      border: none; border-radius: var(--radius); padding: 18px 22px;
+      background: var(--surface); box-shadow: var(--shadow); color: var(--text);
+    }
+    .alert-warning { background: color-mix(in srgb, var(--amber) 12%, var(--surface)); color: var(--text); }
+    .alert-danger { background: color-mix(in srgb, var(--red) 12%, var(--surface)); }
+
+    /* ---- Vendor directory list ---- */
+    .list-group { border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); }
+    .list-group-item {
+      border: none; border-top: .5px solid var(--line); background: var(--surface);
+      color: var(--text); padding: 20px 24px;
+    }
+    .list-group-item:first-child { border-top: none; }
+    .list-group-item h5 { font-size: 1.05rem; margin-bottom: 6px; }
+
+    /* ---- Documents ---- */
+    .document-card {
+      background: var(--surface); border: .5px solid var(--line); border-radius: var(--radius-sm);
+      padding: 16px 18px; margin-bottom: 16px; box-shadow: var(--shadow); color: var(--text);
+    }
+    .document-card strong { color: var(--accent); font-size: .78rem; text-transform: uppercase; letter-spacing: .03em; }
     .status-badge { font-size: 0.8rem; }
+
+    /* ---- Modal ---- */
+    .modal-content { border: none; border-radius: 22px; background: var(--surface); box-shadow: 0 30px 90px rgba(0,0,0,.35); overflow: hidden; }
+    .modal-header { border-bottom: .5px solid var(--line); padding: 20px 26px; }
+    .modal-header.bg-success { background: var(--accent) !important; }
+    .modal-body { padding: 24px 26px; color: var(--text); }
+    .modal-body h5 { margin-top: 6px; }
     .modal-body ul { margin-bottom: 0; }
+    .modal-body p, .modal-body li { color: var(--text-2); line-height: 1.6; }
+    .modal-body code { background: var(--surface-2); color: var(--accent); padding: 2px 6px; border-radius: 6px; }
+    .modal-footer { border-top: .5px solid var(--line); padding: 16px 26px; }
+
+    /* ---- Raw data (admin) ---- */
+    #admRawData {
+      background: var(--surface); border: .5px solid var(--line); border-radius: var(--radius);
+      padding: 20px; font-size: .82rem; color: var(--text); max-height: 60vh; overflow: auto;
+    }
+
+    /* ---- Loading overlay ---- */
+    #appLoading { background: var(--bg) !important; gap: 16px; }
+    .farmx-spinner {
+      width: 34px; height: 34px; border-radius: 50%;
+      border: 3px solid var(--line); border-top-color: var(--accent);
+      animation: farmx-spin .8s linear infinite;
+    }
+    @keyframes farmx-spin { to { transform: rotate(360deg); } }
+    #appLoading h4 { color: var(--text-2); font-weight: 500; font-size: 1rem; }
+
+    @media (max-width: 576px) {
+      .app-main { padding: 8px 16px 64px; }
+      .nav-user { display: none; }
+    }
   </style>
 </head>
 <body>
   <!-- Loading overlay -->
-  <div id="appLoading" style="position:fixed;top:0;left:0;width:100%;height:100%;background:#fff;z-index:9999;display:flex;flex-direction:column;justify-content:center;align-items:center;">
-    <h4>🌾 Loading FarmX MVP…</h4>
-    <div id="loadError" style="color:red;margin-top:20px;"></div>
+  <div id="appLoading" style="position:fixed;top:0;left:0;width:100%;height:100%;z-index:9999;display:flex;flex-direction:column;justify-content:center;align-items:center;">
+    <div class="farmx-spinner"></div>
+    <h4>Loading FarmX…</h4>
+    <div id="loadError" style="margin-top:12px;max-width:420px;"></div>
   </div>
 
-  <nav class="navbar navbar-expand-lg fixed-top navbar-dark bg-success">
+  <nav class="navbar navbar-expand-lg fixed-top farmx-nav">
     <div class="container-fluid">
-      <a class="navbar-brand" href="#">🌾 FarmX MVP</a>
-      <div class="d-flex align-items-center text-white">
+      <a class="navbar-brand" href="#">🌾 FarmX</a>
+      <div class="d-flex align-items-center gap-2">
         <!-- Role selector -->
-        <span class="me-2">Role:</span>
-        <select id="roleSelector" class="form-select form-select-sm w-auto">
+        <span class="nav-label d-none d-sm-inline">Viewing as</span>
+        <select id="roleSelector" class="form-select form-select-sm w-auto" aria-label="Select role">
           <option value="enterprise" selected>Enterprise</option>
           <option value="vendor">Vendor</option>
           <option value="admin">Administrator</option>
         </select>
         <!-- Instructions button -->
-        <button class="btn btn-sm btn-light ms-3" data-bs-toggle="modal" data-bs-target="#instructionsModal">📘 How to Use</button>
-        <span class="ms-3" id="currentUserDisplay"></span>
+        <button class="btn btn-sm btn-guide" data-bs-toggle="modal" data-bs-target="#instructionsModal">How to use</button>
+        <span class="nav-user" id="currentUserDisplay"></span>
       </div>
     </div>
   </nav>
@@ -43,7 +253,7 @@
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
       <div class="modal-content">
         <div class="modal-header bg-success text-white">
-          <h5 class="modal-title" id="instructionsModalLabel">🌾 FarmX MVP – User Instructions</h5>
+          <h5 class="modal-title" id="instructionsModalLabel">🌾 How to use FarmX</h5>
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
@@ -108,8 +318,8 @@
     </div>
   </div>
 
-  <!-- Main content (identical to the last working version, included for completeness) -->
-  <div class="container-fluid">
+  <!-- Main content -->
+  <div class="app-main">
     <!-- Tabs: Enterprise -->
     <div id="enterpriseTabs" style="display: none;">
       <ul class="nav nav-tabs" role="tablist">
