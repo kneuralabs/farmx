@@ -165,426 +165,592 @@
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script>
-    alert('✅ FarmX script started. If you see this, JavaScript is working.');
-    console.log('FarmX diagnostic script loaded.');
+    /* =====================================================================
+     * FarmX MVP — client-side prototype
+     * ---------------------------------------------------------------------
+     * Single-file, zero-build by design (static hosting on GitHub Pages).
+     * The script is organised into clear layers, top to bottom:
+     *
+     *   1. Config / enums    – static option lists + role→user map
+     *   2. Storage adapter   – localStorage with in-memory fallback
+     *   3. Store             – ONE parsed cache of the "database"
+     *   4. Selectors         – pure read helpers over the store
+     *   5. DOM utilities     – HTML escaping + element access
+     *   6. Views             – pure HTML builders, one per role/tab
+     *   7. Actions           – the only functions that mutate + persist
+     *   8. Controller        – role switch, tab routing, event delegation
+     *   9. Bootstrap         – seed demo data + first render
+     *
+     * All user-supplied values are escaped before entering the DOM, and all
+     * dynamic controls are wired through delegated listeners (no inline
+     * onclick / window.* globals).
+     * ===================================================================== */
+    (function () {
+      'use strict';
 
-    // Fallback: hide loading after 10 seconds if something hangs
-    setTimeout(function() {
-      var loadDiv = document.getElementById('appLoading');
-      if (loadDiv) loadDiv.style.display = 'none';
-    }, 10000);
+      // ---- 1. Config / enums --------------------------------------------
+      var STORAGE_KEY = 'farmx_data';
+      var LOAD_FALLBACK_MS = 10000;
 
-    (function() {
-      try {
-        // ----- Safe localStorage -----
-        function safeStorage() {
-          try {
-            var test = '__farmx__';
-            localStorage.setItem(test, test);
-            localStorage.removeItem(test);
-            return localStorage;
-          } catch (e) {
-            console.warn('localStorage not available, using memory');
-            var mem = {};
-            return {
-              getItem: function(k) { return mem[k] || null; },
-              setItem: function(k, v) { mem[k] = v; },
-              removeItem: function(k) { delete mem[k]; }
-            };
-          }
-        }
+      var ROLE_USER = { enterprise: 'user-ent-1', vendor: 'user-ven-1', admin: 'admin-1' };
 
-        var storage = safeStorage();
-        var STORAGE_KEY = 'farmx_data';
+      var ACTIVITY_OPTIONS = [
+        ['production_ag', 'Production Agriculture'], ['winery', 'Winery'],
+        ['brewery', 'Brewery'], ['distillery', 'Distillery'],
+        ['farm_market', 'Farm Market'], ['u_pick', 'U-Pick'],
+        ['lodging', 'Lodging'], ['events', 'Events'],
+        ['food_processing', 'Food Processing'], ['retail', 'Retail'],
+        ['wholesale', 'Wholesale'], ['education', 'Educational'],
+        ['direct_sales', 'Direct-to-Consumer']
+      ];
 
-        function getData() {
-          var raw = storage.getItem(STORAGE_KEY);
-          return raw ? JSON.parse(raw) : {
-            enterprises: [],
-            vendors: [],
-            relationships: [],
-            bookings: [],
-            documents: [],
-            nextId: 1
+      var RELATIONSHIP_STATUSES = [
+        ['pending_outreach', 'Pending Outreach'], ['preferred', 'Preferred'],
+        ['booked', 'Booked'], ['past', 'Past'], ['recommended', 'Recommended'],
+        ['unavailable', 'Unavailable'], ['archived', 'Archived']
+      ];
+
+      var DOC_TYPES = [
+        ['insurance_cert', 'Insurance Cert'], ['license', 'License'],
+        ['agreement', 'Agreement'], ['photo', 'Photo'], ['other', 'Other']
+      ];
+
+      // ---- 2. Storage adapter -------------------------------------------
+      // Real localStorage when available; a memory shim otherwise (private
+      // mode, disabled storage, etc.) so the app degrades instead of crashing.
+      function createStorage() {
+        try {
+          var probe = '__farmx__';
+          localStorage.setItem(probe, probe);
+          localStorage.removeItem(probe);
+          return localStorage;
+        } catch (e) {
+          console.warn('localStorage unavailable, using in-memory store');
+          var mem = {};
+          return {
+            getItem: function (k) { return Object.prototype.hasOwnProperty.call(mem, k) ? mem[k] : null; },
+            setItem: function (k, v) { mem[k] = String(v); },
+            removeItem: function (k) { delete mem[k]; }
           };
         }
-        function saveData(data) { storage.setItem(STORAGE_KEY, JSON.stringify(data)); }
+      }
+      var storage = createStorage();
 
-        function seedDemoData() {
-          var d = getData();
-          if (d.enterprises.length === 0 && d.vendors.length === 0) {
-            var ent = {
-              id: 'ent-' + (d.nextId++), ownerId: 'user-ent-1', name: 'Green Acres Vineyard',
-              legalName: 'Green Acres LLC', description: 'Family-owned vineyard with wine tastings, events, and farm-to-table dinners.',
-              taxId: '12-3456789', website: 'https://greenacresvineyard.com', primaryContact: 'John Farmer',
-              phone: '410-555-0101', email: 'info@greenacresvineyard.com',
-              operatingHours: '{"mon":"9-5","tue":"9-5","wed":"9-5","thu":"9-5","fri":"9-5","sat":"10-6","sun":"12-5"}',
-              socialLinks: '{"facebook":"greenacresvineyard"}', activities: ['winery','events','retail'],
-              locations: [{ name:'Main Estate', address:'123 Vineyard Ln', city:'Frederick', state:'MD', zip:'21701' }],
-              contacts: [{ firstName:'John', lastName:'Farmer', title:'Owner', email:'john@greenacresvineyard.com', phone:'410-555-0101', isPrimary:true }],
-              status: 'approved'
-            };
-            d.enterprises.push(ent);
-            var vend = {
-              id: 'ven-' + (d.nextId++), ownerId: 'user-ven-1', businessName: 'Bluegrass Strings',
-              description: 'Live bluegrass band for wineries and festivals.', website: 'https://bluegrassstrings.com',
-              phone: '240-555-0202', email: 'book@bluegrassstrings.com', travelRadius: 50,
-              availability: '{"weekdays":["fri","sat","sun"],"seasons":["spring","summer","fall"]}',
-              categories: ['musician'], status: 'approved'
-            };
-            d.vendors.push(vend);
-            d.relationships.push({
-              enterpriseId: ent.id, vendorId: vend.id, status: 'preferred',
-              notes: 'Great band, always a hit at our summer concerts.',
-              createdBy: ent.ownerId, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()
-            });
-            saveData(d);
+      // ---- 3. Store ------------------------------------------------------
+      // The DB is parsed from storage exactly once, cached, mutated in place,
+      // and persisted on write. This removes the repeated JSON.parse that the
+      // original ran on every getData() call (many times per render).
+      var Store = {
+        _cache: null,
+        emptyDb: function () {
+          return { enterprises: [], vendors: [], relationships: [], bookings: [], documents: [], nextId: 1 };
+        },
+        get data() {
+          if (!this._cache) {
+            var raw = storage.getItem(STORAGE_KEY);
+            this._cache = raw ? JSON.parse(raw) : this.emptyDb();
           }
+          return this._cache;
+        },
+        save: function () { storage.setItem(STORAGE_KEY, JSON.stringify(this._cache)); },
+        nextId: function (prefix) { return prefix + '-' + (this._cache.nextId++); }
+      };
+
+      // ---- 4. Selectors (pure reads) ------------------------------------
+      function enterprises() { return Store.data.enterprises; }
+      function vendors() { return Store.data.vendors; }
+      function myEnterprise() { return enterprises().find(function (e) { return e.ownerId === state.userId; }); }
+      function myVendor() { return vendors().find(function (v) { return v.ownerId === state.userId; }); }
+      function enterpriseById(id) { return enterprises().find(function (e) { return e.id === id; }); }
+      function vendorById(id) { return vendors().find(function (v) { return v.id === id; }); }
+
+      // ---- 5. DOM utilities ---------------------------------------------
+      function esc(value) {
+        return String(value == null ? '' : value)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      }
+      function $(id) { return document.getElementById(id); }
+      function setHtml(id, html) { var node = $(id); if (node) node.innerHTML = html; }
+      function val(id) { var node = $(id); return node ? node.value : ''; }
+
+      // Build <option> markup from [value, label] pairs; first entry is the
+      // browser default (matches the original hard-coded ordering).
+      function optionList(pairs) {
+        return pairs.map(function (pair) {
+          return '<option value="' + esc(pair[0]) + '">' + esc(pair[1]) + '</option>';
+        }).join('');
+      }
+      function vendorOptions() {
+        return vendors().map(function (v) {
+          return '<option value="' + esc(v.id) + '">' + esc(v.businessName) + '</option>';
+        }).join('');
+      }
+
+      // ---- App state -----------------------------------------------------
+      var state = { role: 'enterprise', userId: ROLE_USER.enterprise };
+
+      // ---- 6. Views (enterprise) ----------------------------------------
+      function renderEnterpriseDashboard() {
+        var ent = myEnterprise();
+        if (!ent) {
+          setHtml('entDashContent',
+            '<div class="alert alert-warning">No enterprise profile. ' +
+            '<a href="#" data-action="goto-ent-profile">Create one</a>.</div>');
+          return;
         }
+        var data = Store.data;
+        var bookings = data.bookings.filter(function (b) { return b.enterpriseId === ent.id; });
+        var pending = bookings.filter(function (b) { return b.bookingStatus === 'requested' || b.bookingStatus === 'change_requested'; });
+        var now = new Date();
+        var upcoming = bookings.filter(function (b) {
+          return (b.bookingStatus === 'accepted' || b.bookingStatus === 'completed') && new Date(b.date) >= now;
+        });
+        var docs = data.documents.filter(function (d) { return d.entityType === 'enterprise' && d.entityId === ent.id; });
+        var hasInsurance = docs.some(function (d) { return d.docType === 'insurance_cert'; });
+        var docStatus = hasInsurance ? 'All docs complete' : 'Insurance Certificate missing';
 
-        var currentRole = 'enterprise';
-        var currentUserId = 'user-ent-1';
-        window.switchRole = function() {
-          var sel = document.getElementById('roleSelector');
-          currentRole = sel.value;
-          if (currentRole === 'enterprise') currentUserId = 'user-ent-1';
-          else if (currentRole === 'vendor') currentUserId = 'user-ven-1';
-          else currentUserId = 'admin-1';
-          updateUI();
-        };
+        setHtml('entDashContent',
+          '<div class="row">' +
+          '<div class="col-md-4"><div class="card"><div class="card-body"><h5>Profile</h5><p>' +
+            esc(ent.name) + '<br>' + esc(ent.primaryContact || '') +
+            '<br>Activities: ' + esc((ent.activities || []).join(', ')) + '</p></div></div></div>' +
+          '<div class="col-md-4"><div class="card"><div class="card-body"><h5>Pending Tasks</h5><p>Pending Bookings: ' +
+            pending.length + '<br>' + esc(docStatus) + '</p></div></div></div>' +
+          '<div class="col-md-4"><div class="card"><div class="card-body"><h5>Upcoming</h5><p>' +
+            upcoming.length + ' upcoming booking(s)</p></div></div></div>' +
+          '</div>');
+      }
 
-        function getEnterprise(id) { return getData().enterprises.find(function(e) { return e.id === id; }); }
-        function getVendor(id) { return getData().vendors.find(function(v) { return v.id === id; }); }
-
-        // ---- Enterprise renderers (same as before) ----
-        function renderEnterpriseDashboard() {
-          var data = getData();
-          var myEnt = data.enterprises.find(function(e) { return e.ownerId === currentUserId; });
-          if (!myEnt) {
-            document.getElementById('entDashContent').innerHTML = '<div class="alert alert-warning">No enterprise profile. <a href="#" onclick="document.querySelector(\'[data-bs-target=\\\'#entProfile\\\']\').click()">Create one</a>.</div>';
-            return;
-          }
-          var bookings = data.bookings.filter(function(b) { return b.enterpriseId === myEnt.id; });
-          var pending = bookings.filter(function(b) { return b.bookingStatus === 'requested' || b.bookingStatus === 'change_requested'; });
-          var upcoming = bookings.filter(function(b) { return (b.bookingStatus === 'accepted' || b.bookingStatus === 'completed') && new Date(b.date) >= new Date(); });
-          var docs = data.documents.filter(function(d) { return d.entityType === 'enterprise' && d.entityId === myEnt.id; });
-          var missingDocs = docs.some(function(d) { return d.docType === 'insurance_cert'; }) ? '' : 'Insurance Certificate missing';
-          document.getElementById('entDashContent').innerHTML =
-            '<div class="row">' +
-            '<div class="col-md-4"><div class="card"><div class="card-body"><h5>Profile</h5><p>' + myEnt.name + '<br>' + (myEnt.primaryContact || '') + '<br>Activities: ' + (myEnt.activities || []).join(', ') + '</p></div></div></div>' +
-            '<div class="col-md-4"><div class="card"><div class="card-body"><h5>Pending Tasks</h5><p>Pending Bookings: ' + pending.length + '<br>' + (missingDocs || 'All docs complete') + '</p></div></div></div>' +
-            '<div class="col-md-4"><div class="card"><div class="card-body"><h5>Upcoming</h5><p>' + upcoming.length + ' upcoming booking(s)</p></div></div></div>' +
-            '</div>';
+      function renderEnterpriseProfile() {
+        var ent = myEnterprise();
+        if (ent) {
+          setHtml('entProfileContent',
+            '<p><strong>' + esc(ent.name) + '</strong><br>Contact: ' + esc(ent.primaryContact) +
+            '<br>Email: ' + esc(ent.email) + '<br>Status: ' + esc(ent.status) +
+            '<br><em>Edit not fully implemented in this prototype.</em></p>');
+          return;
         }
+        setHtml('entProfileContent',
+          '<h5>Create Enterprise Profile</h5>' +
+          '<form id="entCreateForm" data-action="create-enterprise" class="row g-3">' +
+          '<div class="col-md-6"><input class="form-control" id="entName" placeholder="Business Name" required></div>' +
+          '<div class="col-md-6"><input class="form-control" id="entLegal" placeholder="Legal Name"></div>' +
+          '<div class="col-12"><textarea class="form-control" id="entDesc" placeholder="Description"></textarea></div>' +
+          '<div class="col-md-4"><input class="form-control" id="entContact" placeholder="Primary Contact"></div>' +
+          '<div class="col-md-4"><input class="form-control" id="entPhone" placeholder="Phone"></div>' +
+          '<div class="col-md-4"><input class="form-control" id="entEmail" placeholder="Email"></div>' +
+          '<div class="col-md-4"><input class="form-control" id="entWebsite" placeholder="Website"></div>' +
+          '<div class="col-md-4"><input class="form-control" id="entTaxId" placeholder="Tax ID"></div>' +
+          '<div class="col-md-4"><label>Activities</label><select multiple class="form-select" id="entActivities">' +
+            optionList(ACTIVITY_OPTIONS) + '</select></div>' +
+          '<div class="col-12"><button type="submit" class="btn btn-success">Create Enterprise</button></div>' +
+          '</form>');
+      }
 
-        function renderEnterpriseProfile() {
-          var data = getData();
-          var myEnt = data.enterprises.find(function(e) { return e.ownerId === currentUserId; });
-          if (!myEnt) {
-            document.getElementById('entProfileContent').innerHTML =
-              '<h5>Create Enterprise Profile</h5>' +
-              '<form id="entCreateForm" class="row g-3">' +
-              '<div class="col-md-6"><input class="form-control" id="entName" placeholder="Business Name" required></div>' +
-              '<div class="col-md-6"><input class="form-control" id="entLegal" placeholder="Legal Name"></div>' +
-              '<div class="col-12"><textarea class="form-control" id="entDesc" placeholder="Description"></textarea></div>' +
-              '<div class="col-md-4"><input class="form-control" id="entContact" placeholder="Primary Contact"></div>' +
-              '<div class="col-md-4"><input class="form-control" id="entPhone" placeholder="Phone"></div>' +
-              '<div class="col-md-4"><input class="form-control" id="entEmail" placeholder="Email"></div>' +
-              '<div class="col-md-4"><input class="form-control" id="entWebsite" placeholder="Website"></div>' +
-              '<div class="col-md-4"><input class="form-control" id="entTaxId" placeholder="Tax ID"></div>' +
-              '<div class="col-md-4"><label>Activities</label><select multiple class="form-select" id="entActivities">' +
-              '<option value="production_ag">Production Agriculture</option><option value="winery">Winery</option><option value="brewery">Brewery</option><option value="distillery">Distillery</option><option value="farm_market">Farm Market</option><option value="u_pick">U-Pick</option><option value="lodging">Lodging</option><option value="events">Events</option><option value="food_processing">Food Processing</option><option value="retail">Retail</option><option value="wholesale">Wholesale</option><option value="education">Educational</option><option value="direct_sales">Direct-to-Consumer</option>' +
-              '</select></div>' +
-              '<div class="col-12"><button type="submit" class="btn btn-success">Create Enterprise</button></div>' +
-              '</form>';
-            document.getElementById('entCreateForm').addEventListener('submit', function(e) {
-              e.preventDefault();
-              var d = getData();
-              var activities = Array.from(document.getElementById('entActivities').selectedOptions).map(function(o) { return o.value; });
-              var newEnt = {
-                id: 'ent-' + (d.nextId++), ownerId: currentUserId,
-                name: document.getElementById('entName').value,
-                legalName: document.getElementById('entLegal').value,
-                description: document.getElementById('entDesc').value,
-                primaryContact: document.getElementById('entContact').value,
-                phone: document.getElementById('entPhone').value,
-                email: document.getElementById('entEmail').value,
-                website: document.getElementById('entWebsite').value,
-                taxId: document.getElementById('entTaxId').value,
-                activities: activities, locations: [], contacts: [], status: 'pending'
-              };
-              d.enterprises.push(newEnt);
-              saveData(d);
-              alert('Enterprise created! Awaiting admin approval.');
-              renderEnterpriseProfile();
-              renderEnterpriseDashboard();
-            });
-          } else {
-            document.getElementById('entProfileContent').innerHTML =
-              '<p><strong>' + myEnt.name + '</strong><br>Contact: ' + myEnt.primaryContact + '<br>Email: ' + myEnt.email + '<br>Status: ' + myEnt.status + '<br><em>Edit not fully implemented in this prototype.</em></p>';
-          }
-        }
-
-        function renderVendorDirectory() {
-          var data = getData();
-          var search = (document.getElementById('dirSearch')?.value || '').toLowerCase();
-          var cat = document.getElementById('dirCategory')?.value || '';
-          var vendors = data.vendors.filter(function(v) { return v.status === 'approved'; });
-          if (search) vendors = vendors.filter(function(v) { return v.businessName.toLowerCase().includes(search) || v.description.toLowerCase().includes(search); });
-          if (cat) vendors = vendors.filter(function(v) { return (v.categories || []).includes(cat); });
-          var catSelect = document.getElementById('dirCategory');
-          if (catSelect && catSelect.options.length <= 1) {
-            var allCats = [];
-            data.vendors.forEach(function(v) { (v.categories || []).forEach(function(c) { if (allCats.indexOf(c) === -1) allCats.push(c); }); });
-            allCats.forEach(function(c) { catSelect.add(new Option(c, c)); });
-          }
-          var html = '<div class="list-group">';
-          vendors.forEach(function(v) {
-            html += '<div class="list-group-item"><h5>' + v.businessName + '</h5><p>' + (v.description || '') + '<br><small>Categories: ' + (v.categories || []).join(', ') + ' | Phone: ' + v.phone + '</small></p><button class="btn btn-sm btn-outline-primary" onclick="alert(\'Vendor: ' + v.businessName + '\\nPhone: ' + v.phone + '\\nEmail: ' + v.email + '\')">View Details</button></div>';
+      function renderVendorDirectory() {
+        var search = (val('dirSearch') || '').toLowerCase();
+        var cat = val('dirCategory') || '';
+        var list = vendors().filter(function (v) { return v.status === 'approved'; });
+        if (search) {
+          list = list.filter(function (v) {
+            return v.businessName.toLowerCase().indexOf(search) !== -1 ||
+              (v.description || '').toLowerCase().indexOf(search) !== -1;
           });
-          html += '</div>';
-          document.getElementById('dirResults').innerHTML = html || '<p>No vendors found.</p>';
         }
+        if (cat) list = list.filter(function (v) { return (v.categories || []).indexOf(cat) !== -1; });
 
-        function renderRelationships() {
-          var data = getData();
-          var myEnt = data.enterprises.find(function(e) { return e.ownerId === currentUserId; });
-          if (!myEnt) return;
-          var rels = data.relationships.filter(function(r) { return r.enterpriseId === myEnt.id; });
-          var html = '<table class="table"><thead><tr><th>Vendor</th><th>Status</th><th>Notes</th></tr></thead><tbody>';
-          rels.forEach(function(r) {
-            var v = getVendor(r.vendorId);
-            html += '<tr><td>' + (v ? v.businessName : 'Unknown') + '</td><td><span class="badge bg-info">' + r.status + '</span></td><td>' + (r.notes || '') + '</td></tr>';
+        // Populate the category filter once, from every vendor's categories.
+        var catSelect = $('dirCategory');
+        if (catSelect && catSelect.options.length <= 1) {
+          var seen = [];
+          vendors().forEach(function (v) {
+            (v.categories || []).forEach(function (c) { if (seen.indexOf(c) === -1) seen.push(c); });
           });
-          html += '</tbody></table>';
-          html += '<hr><h5>Add/Update Relationship</h5><div class="row g-2">' +
-            '<div class="col-md-4"><select id="relVendor" class="form-select"><option value="">Select Vendor</option>' + data.vendors.map(function(v) { return '<option value="' + v.id + '">' + v.businessName + '</option>'; }).join('') + '</select></div>' +
-            '<div class="col-md-3"><select id="relStatus" class="form-select"><option value="pending_outreach">Pending Outreach</option><option value="preferred">Preferred</option><option value="booked">Booked</option><option value="past">Past</option><option value="recommended">Recommended</option><option value="unavailable">Unavailable</option><option value="archived">Archived</option></select></div>' +
-            '<div class="col-md-3"><input id="relNotes" class="form-control" placeholder="Notes"></div>' +
-            '<div class="col-md-2"><button class="btn btn-success" onclick="window.addOrUpdateRelationship()">Save</button></div></div>';
-          document.getElementById('entRelationshipsContent').innerHTML = html;
-          window.addOrUpdateRelationship = function() {
-            var vendorId = document.getElementById('relVendor').value;
-            if (!vendorId) return alert('Select a vendor.');
-            var status = document.getElementById('relStatus').value;
-            var notes = document.getElementById('relNotes').value;
-            var d = getData();
-            var existing = d.relationships.find(function(r) { return r.enterpriseId === myEnt.id && r.vendorId === vendorId; });
-            if (existing) {
-              existing.status = status; existing.notes = notes; existing.updatedAt = new Date().toISOString();
-            } else {
-              d.relationships.push({
-                enterpriseId: myEnt.id, vendorId: vendorId, status: status, notes: notes,
-                createdBy: currentUserId, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()
-              });
-            }
-            saveData(d);
-            renderRelationships();
-          };
+          seen.forEach(function (c) { catSelect.add(new Option(c, c)); });
         }
 
-        function renderEnterpriseBookings() {
-          var data = getData();
-          var myEnt = data.enterprises.find(function(e) { return e.ownerId === currentUserId; });
-          if (!myEnt) return;
-          var bookings = data.bookings.filter(function(b) { return b.enterpriseId === myEnt.id; });
-          var html = '<table class="table"><thead><tr><th>Vendor</th><th>Event</th><th>Date</th><th>Status</th><th>Payment</th></tr></thead><tbody>';
-          bookings.forEach(function(b) {
-            var v = getVendor(b.vendorId);
-            html += '<tr><td>' + (v ? v.businessName : '?') + '</td><td>' + b.eventName + '</td><td>' + b.date + '</td><td>' + b.bookingStatus + '</td><td>' + b.paymentStatus + '</td></tr>';
+        var items = list.map(function (v) {
+          return '<div class="list-group-item"><h5>' + esc(v.businessName) + '</h5><p>' +
+            esc(v.description || '') + '<br><small>Categories: ' + esc((v.categories || []).join(', ')) +
+            ' | Phone: ' + esc(v.phone) + '</small></p>' +
+            '<button class="btn btn-sm btn-outline-primary" data-action="view-vendor" data-id="' +
+            esc(v.id) + '">View Details</button></div>';
+        }).join('');
+        setHtml('dirResults', '<div class="list-group">' + items + '</div>');
+      }
+
+      function renderRelationships() {
+        var ent = myEnterprise();
+        if (!ent) return;
+        var rels = Store.data.relationships.filter(function (r) { return r.enterpriseId === ent.id; });
+        var rows = rels.map(function (r) {
+          var v = vendorById(r.vendorId);
+          return '<tr><td>' + esc(v ? v.businessName : 'Unknown') +
+            '</td><td><span class="badge bg-info">' + esc(r.status) +
+            '</span></td><td>' + esc(r.notes || '') + '</td></tr>';
+        }).join('');
+        setHtml('entRelationshipsContent',
+          '<table class="table"><thead><tr><th>Vendor</th><th>Status</th><th>Notes</th></tr></thead><tbody>' +
+          rows + '</tbody></table>' +
+          '<hr><h5>Add/Update Relationship</h5><div class="row g-2">' +
+          '<div class="col-md-4"><select id="relVendor" class="form-select"><option value="">Select Vendor</option>' +
+            vendorOptions() + '</select></div>' +
+          '<div class="col-md-3"><select id="relStatus" class="form-select">' + optionList(RELATIONSHIP_STATUSES) + '</select></div>' +
+          '<div class="col-md-3"><input id="relNotes" class="form-control" placeholder="Notes"></div>' +
+          '<div class="col-md-2"><button class="btn btn-success" data-action="save-relationship">Save</button></div></div>');
+      }
+
+      function renderEnterpriseBookings() {
+        var ent = myEnterprise();
+        if (!ent) return;
+        var bookings = Store.data.bookings.filter(function (b) { return b.enterpriseId === ent.id; });
+        var rows = bookings.map(function (b) {
+          var v = vendorById(b.vendorId);
+          return '<tr><td>' + esc(v ? v.businessName : '?') + '</td><td>' + esc(b.eventName) +
+            '</td><td>' + esc(b.date) + '</td><td>' + esc(b.bookingStatus) +
+            '</td><td>' + esc(b.paymentStatus) + '</td></tr>';
+        }).join('');
+        setHtml('entBookingsContent',
+          '<table class="table"><thead><tr><th>Vendor</th><th>Event</th><th>Date</th><th>Status</th><th>Payment</th></tr></thead><tbody>' +
+          rows + '</tbody></table>' +
+          '<hr><h5>New Booking Request</h5><div class="row g-2">' +
+          '<div class="col-md-3"><select id="bkVen" class="form-select"><option value="">Vendor</option>' +
+            vendorOptions() + '</select></div>' +
+          '<div class="col-md-3"><input id="bkEvent" class="form-control" placeholder="Event name" required></div>' +
+          '<div class="col-md-2"><input id="bkDate" type="date" class="form-control" required></div>' +
+          '<div class="col-md-2"><input id="bkNotes" class="form-control" placeholder="Notes"></div>' +
+          '<div class="col-md-2"><button class="btn btn-primary" data-action="create-booking">Request Booking</button></div></div>');
+      }
+
+      function renderEnterpriseDocuments() {
+        var ent = myEnterprise();
+        if (!ent) return;
+        var docs = Store.data.documents.filter(function (d) { return d.entityType === 'enterprise' && d.entityId === ent.id; });
+        var cards = docs.map(function (d) {
+          return '<div class="col-md-3"><div class="document-card"><strong>' + esc(d.docType) +
+            '</strong><br>' + esc(d.fileName) + '<br><small>' + esc(d.uploadDate ? d.uploadDate.slice(0, 10) : '') +
+            '</small></div></div>';
+        }).join('');
+        setHtml('entDocumentsContent',
+          '<div class="row">' + cards + '</div>' +
+          '<hr><div class="input-group"><select id="entDocType" class="form-select">' + optionList(DOC_TYPES) + '</select>' +
+          '<input id="entDocName" class="form-control" placeholder="File name">' +
+          '<button class="btn btn-primary" data-action="upload-ent-doc">Upload</button></div>');
+      }
+
+      // ---- 6. Views (vendor) --------------------------------------------
+      function renderVendorDashboard() {
+        var vend = myVendor();
+        if (!vend) {
+          setHtml('venDashContent', '<div class="alert alert-warning">No vendor profile.</div>');
+          return;
+        }
+        var accepted = Store.data.bookings.filter(function (b) {
+          return b.vendorId === vend.id && b.bookingStatus === 'accepted';
+        });
+        setHtml('venDashContent',
+          '<p>Profile: ' + esc(vend.businessName) + '<br>Upcoming accepted bookings: ' + accepted.length + '</p>');
+      }
+
+      function renderVendorProfile() {
+        var vend = myVendor();
+        if (!vend) {
+          setHtml('venProfileContent', '<p>No vendor profile. (Creation not implemented).</p>');
+          return;
+        }
+        setHtml('venProfileContent',
+          '<p><strong>' + esc(vend.businessName) + '</strong><br>Email: ' + esc(vend.email) +
+          '<br>Categories: ' + esc((vend.categories || []).join(', ')) + '</p>');
+      }
+
+      function renderVendorBookings() {
+        var vend = myVendor();
+        if (!vend) return;
+        var bookings = Store.data.bookings.filter(function (b) { return b.vendorId === vend.id; });
+        var rows = bookings.map(function (b) {
+          var ent = enterpriseById(b.enterpriseId);
+          return '<tr><td>' + esc(ent ? ent.name : '?') + '</td><td>' + esc(b.eventName) +
+            '</td><td>' + esc(b.date) + '</td><td>' + esc(b.bookingStatus) +
+            '</td><td>' + esc(b.paymentStatus) + '</td></tr>';
+        }).join('');
+        setHtml('venBookingsContent',
+          '<table class="table"><tr><th>Enterprise</th><th>Event</th><th>Date</th><th>Status</th><th>Payment</th></tr>' +
+          rows + '</table>');
+      }
+
+      function renderVendorDocuments() {
+        var vend = myVendor();
+        if (!vend) return;
+        var docs = Store.data.documents.filter(function (d) { return d.entityType === 'vendor' && d.entityId === vend.id; });
+        var cards = docs.map(function (d) {
+          return '<div class="col-md-3"><div class="document-card"><strong>' + esc(d.docType) +
+            '</strong><br>' + esc(d.fileName) + '</div></div>';
+        }).join('');
+        setHtml('venDocumentsContent', '<div class="row">' + cards + '</div>');
+      }
+
+      // ---- 6. Views (admin) ---------------------------------------------
+      function renderAdminDashboard() {
+        var data = Store.data;
+        var pendingEnt = data.enterprises.filter(function (e) { return e.status === 'pending'; }).length;
+        var pendingVen = data.vendors.filter(function (v) { return v.status === 'pending'; }).length;
+        setHtml('admDashContent',
+          '<p>Enterprises: ' + data.enterprises.length + ' (pending: ' + pendingEnt + ')<br>' +
+          'Vendors: ' + data.vendors.length + ' (pending: ' + pendingVen + ')<br>' +
+          'Bookings: ' + data.bookings.length + '</p>');
+        renderAdminRegistrations();
+      }
+
+      function registrationItem(type, id, label, status) {
+        return '<li class="list-group-item">' + esc(label) + ' (' + esc(status) + ') ' +
+          '<button class="btn btn-sm btn-success" data-action="approve-entity" data-type="' + esc(type) +
+          '" data-id="' + esc(id) + '">Approve</button> ' +
+          '<button class="btn btn-sm btn-danger" data-action="reject-entity" data-type="' + esc(type) +
+          '" data-id="' + esc(id) + '">Reject</button></li>';
+      }
+
+      function renderAdminRegistrations() {
+        var data = Store.data;
+        var entItems = data.enterprises.map(function (e) {
+          return registrationItem('enterprise', e.id, e.name, e.status);
+        }).join('');
+        var venItems = data.vendors.map(function (v) {
+          return registrationItem('vendor', v.id, v.businessName, v.status);
+        }).join('');
+        setHtml('admRegList',
+          '<h5>Enterprises</h5><ul class="list-group">' + entItems + '</ul>' +
+          '<h5>Vendors</h5><ul class="list-group">' + venItems + '</ul>');
+      }
+
+      function renderAllData() {
+        $('admRawData').textContent = JSON.stringify(Store.data, null, 2);
+      }
+
+      // ---- 7. Actions (the only mutators) -------------------------------
+      function createEnterprise() {
+        var activities = Array.prototype.slice.call($('entActivities').selectedOptions)
+          .map(function (o) { return o.value; });
+        Store.data.enterprises.push({
+          id: Store.nextId('ent'), ownerId: state.userId,
+          name: val('entName'), legalName: val('entLegal'), description: val('entDesc'),
+          primaryContact: val('entContact'), phone: val('entPhone'), email: val('entEmail'),
+          website: val('entWebsite'), taxId: val('entTaxId'),
+          activities: activities, locations: [], contacts: [], status: 'pending'
+        });
+        Store.save();
+        alert('Enterprise created! Awaiting admin approval.');
+        renderEnterpriseProfile();
+        renderEnterpriseDashboard();
+      }
+
+      function viewVendor(id) {
+        var v = vendorById(id);
+        if (v) alert('Vendor: ' + v.businessName + '\nPhone: ' + v.phone + '\nEmail: ' + v.email);
+      }
+
+      function saveRelationship() {
+        var ent = myEnterprise();
+        if (!ent) return;
+        var vendorId = val('relVendor');
+        if (!vendorId) { alert('Select a vendor.'); return; }
+        var now = new Date().toISOString();
+        var existing = Store.data.relationships.find(function (r) {
+          return r.enterpriseId === ent.id && r.vendorId === vendorId;
+        });
+        if (existing) {
+          existing.status = val('relStatus');
+          existing.notes = val('relNotes');
+          existing.updatedAt = now;
+        } else {
+          Store.data.relationships.push({
+            enterpriseId: ent.id, vendorId: vendorId, status: val('relStatus'), notes: val('relNotes'),
+            createdBy: state.userId, createdAt: now, updatedAt: now
           });
-          html += '</tbody></table>';
-          html += '<hr><h5>New Booking Request</h5><div class="row g-2">' +
-            '<div class="col-md-3"><select id="bkVen" class="form-select"><option value="">Vendor</option>' + data.vendors.map(function(v) { return '<option value="' + v.id + '">' + v.businessName + '</option>'; }).join('') + '</select></div>' +
-            '<div class="col-md-3"><input id="bkEvent" class="form-control" placeholder="Event name" required></div>' +
-            '<div class="col-md-2"><input id="bkDate" type="date" class="form-control" required></div>' +
-            '<div class="col-md-2"><input id="bkNotes" class="form-control" placeholder="Notes"></div>' +
-            '<div class="col-md-2"><button class="btn btn-primary" onclick="window.createBooking()">Request Booking</button></div></div>';
-          document.getElementById('entBookingsContent').innerHTML = html;
-          window.createBooking = function() {
-            var vendorId = document.getElementById('bkVen').value;
-            if (!vendorId) return alert('Select a vendor.');
-            var d = getData();
-            d.bookings.push({
-              id: 'bk-' + (d.nextId++), enterpriseId: myEnt.id, vendorId: vendorId,
-              eventName: document.getElementById('bkEvent').value,
-              date: document.getElementById('bkDate').value,
-              notes: document.getElementById('bkNotes').value,
-              bookingStatus: 'requested', paymentStatus: 'quote_requested',
-              createdBy: currentUserId, createdAt: new Date().toISOString()
-            });
-            saveData(d);
-            renderEnterpriseBookings();
-          };
         }
+        Store.save();
+        renderRelationships();
+      }
 
-        function renderEnterpriseDocuments() {
-          var data = getData();
-          var myEnt = data.enterprises.find(function(e) { return e.ownerId === currentUserId; });
-          if (!myEnt) return;
-          var docs = data.documents.filter(function(d) { return d.entityType === 'enterprise' && d.entityId === myEnt.id; });
-          var html = '<div class="row">';
-          docs.forEach(function(d) {
-            html += '<div class="col-md-3"><div class="document-card"><strong>' + d.docType + '</strong><br>' + d.fileName + '<br><small>' + (d.uploadDate ? d.uploadDate.slice(0,10) : '') + '</small></div></div>';
-          });
-          html += '</div>';
-          html += '<hr><div class="input-group"><select id="entDocType" class="form-select"><option value="insurance_cert">Insurance Cert</option><option value="license">License</option><option value="agreement">Agreement</option><option value="photo">Photo</option><option value="other">Other</option></select>' +
-            '<input id="entDocName" class="form-control" placeholder="File name"><button class="btn btn-primary" onclick="window.uploadEnterpriseDoc()">Upload</button></div>';
-          document.getElementById('entDocumentsContent').innerHTML = html;
-          window.uploadEnterpriseDoc = function() {
-            if (!myEnt) return;
-            var docType = document.getElementById('entDocType').value;
-            var fileName = document.getElementById('entDocName').value || 'document.pdf';
-            var d = getData();
-            d.documents.push({
-              id: 'doc-' + (d.nextId++), entityType: 'enterprise', entityId: myEnt.id,
-              docType: docType, fileName: fileName, uploadDate: new Date().toISOString()
-            });
-            saveData(d);
-            renderEnterpriseDocuments();
-          };
-        }
+      function createBooking() {
+        var ent = myEnterprise();
+        if (!ent) return;
+        var vendorId = val('bkVen');
+        if (!vendorId) { alert('Select a vendor.'); return; }
+        Store.data.bookings.push({
+          id: Store.nextId('bk'), enterpriseId: ent.id, vendorId: vendorId,
+          eventName: val('bkEvent'), date: val('bkDate'), notes: val('bkNotes'),
+          bookingStatus: 'requested', paymentStatus: 'quote_requested',
+          createdBy: state.userId, createdAt: new Date().toISOString()
+        });
+        Store.save();
+        renderEnterpriseBookings();
+      }
 
-        // ---- Vendor renderers (basic) ----
-        function renderVendorDashboard() {
-          var data = getData();
-          var myVend = data.vendors.find(function(v) { return v.ownerId === currentUserId; });
-          if (!myVend) {
-            document.getElementById('venDashContent').innerHTML = '<div class="alert alert-warning">No vendor profile.</div>';
-            return;
-          }
-          var bookings = data.bookings.filter(function(b) { return b.vendorId === myVend.id; });
-          document.getElementById('venDashContent').innerHTML = '<p>Profile: ' + myVend.businessName + '<br>Upcoming accepted bookings: ' + bookings.filter(function(b) { return b.bookingStatus === 'accepted'; }).length + '</p>';
-        }
-        function renderVendorProfile() {
-          var data = getData();
-          var myVend = data.vendors.find(function(v) { return v.ownerId === currentUserId; });
-          if (!myVend) {
-            document.getElementById('venProfileContent').innerHTML = '<p>No vendor profile. (Creation not implemented).</p>';
-          } else {
-            document.getElementById('venProfileContent').innerHTML = '<p><strong>' + myVend.businessName + '</strong><br>Email: ' + myVend.email + '<br>Categories: ' + (myVend.categories || []).join(', ') + '</p>';
-          }
-        }
-        function renderVendorBookings() {
-          var data = getData();
-          var myVend = data.vendors.find(function(v) { return v.ownerId === currentUserId; });
-          if (!myVend) return;
-          var bookings = data.bookings.filter(function(b) { return b.vendorId === myVend.id; });
-          var html = '<table class="table"><tr><th>Enterprise</th><th>Event</th><th>Date</th><th>Status</th><th>Payment</th></tr>';
-          bookings.forEach(function(b) {
-            var ent = getEnterprise(b.enterpriseId);
-            html += '<tr><td>' + (ent ? ent.name : '?') + '</td><td>' + b.eventName + '</td><td>' + b.date + '</td><td>' + b.bookingStatus + '</td><td>' + b.paymentStatus + '</td></tr>';
-          });
-          html += '</table>';
-          document.getElementById('venBookingsContent').innerHTML = html || '<p>No bookings.</p>';
-        }
-        function renderVendorDocuments() {
-          var data = getData();
-          var myVend = data.vendors.find(function(v) { return v.ownerId === currentUserId; });
-          if (!myVend) return;
-          var docs = data.documents.filter(function(d) { return d.entityType === 'vendor' && d.entityId === myVend.id; });
-          var html = '<div class="row">';
-          docs.forEach(function(d) { html += '<div class="col-md-3"><div class="document-card"><strong>' + d.docType + '</strong><br>' + d.fileName + '</div></div>'; });
-          html += '</div>';
-          document.getElementById('venDocumentsContent').innerHTML = html || '<p>No documents.</p>';
-        }
+      function uploadEnterpriseDoc() {
+        var ent = myEnterprise();
+        if (!ent) return;
+        Store.data.documents.push({
+          id: Store.nextId('doc'), entityType: 'enterprise', entityId: ent.id,
+          docType: val('entDocType'), fileName: val('entDocName') || 'document.pdf',
+          uploadDate: new Date().toISOString()
+        });
+        Store.save();
+        renderEnterpriseDocuments();
+      }
 
-        // ---- Admin renderers ----
-        function renderAdminDashboard() {
-          var data = getData();
-          document.getElementById('admDashContent').innerHTML =
-            '<p>Enterprises: ' + data.enterprises.length + ' (pending: ' + data.enterprises.filter(function(e) { return e.status === 'pending'; }).length + ')<br>' +
-            'Vendors: ' + data.vendors.length + ' (pending: ' + data.vendors.filter(function(v) { return v.status === 'pending'; }).length + ')<br>' +
-            'Bookings: ' + data.bookings.length + '</p>';
-          renderAdminRegistrations();
-        }
-        function renderAdminRegistrations() {
-          var data = getData();
-          var html = '<h5>Enterprises</h5><ul class="list-group">';
-          data.enterprises.forEach(function(e) {
-            html += '<li class="list-group-item">' + e.name + ' (' + e.status + ') ' +
-              '<button class="btn btn-sm btn-success" onclick="window.approveEntity(\'enterprise\',\'' + e.id + '\')">Approve</button> ' +
-              '<button class="btn btn-sm btn-danger" onclick="window.rejectEntity(\'enterprise\',\'' + e.id + '\')">Reject</button></li>';
-          });
-          html += '</ul><h5>Vendors</h5><ul class="list-group">';
-          data.vendors.forEach(function(v) {
-            html += '<li class="list-group-item">' + v.businessName + ' (' + v.status + ') ' +
-              '<button class="btn btn-sm btn-success" onclick="window.approveEntity(\'vendor\',\'' + v.id + '\')">Approve</button> ' +
-              '<button class="btn btn-sm btn-danger" onclick="window.rejectEntity(\'vendor\',\'' + v.id + '\')">Reject</button></li>';
-          });
-          html += '</ul>';
-          document.getElementById('admRegList').innerHTML = html;
-          window.approveEntity = function(type, id) {
-            var data = getData();
-            var list = type === 'enterprise' ? data.enterprises : data.vendors;
-            var item = list.find(function(i) { return i.id === id; });
-            if (item) { item.status = 'approved'; saveData(data); renderAdminRegistrations(); }
-          };
-          window.rejectEntity = function(type, id) {
-            var data = getData();
-            var list = type === 'enterprise' ? data.enterprises : data.vendors;
-            var item = list.find(function(i) { return i.id === id; });
-            if (item) { item.status = 'rejected'; saveData(data); renderAdminRegistrations(); }
-          };
-        }
-        function renderAllData() {
-          document.getElementById('admRawData').textContent = JSON.stringify(getData(), null, 2);
-        }
+      function setEntityStatus(type, id, status) {
+        var list = type === 'enterprise' ? enterprises() : vendors();
+        var item = list.find(function (i) { return i.id === id; });
+        if (item) { item.status = status; Store.save(); renderAdminRegistrations(); }
+      }
 
-        // ---- UI update ----
-        function updateUI() {
-          document.getElementById('currentUserDisplay').textContent = 'Logged in as: ' + currentUserId + ' (' + currentRole + ')';
-          document.getElementById('enterpriseTabs').style.display = currentRole === 'enterprise' ? 'block' : 'none';
-          document.getElementById('vendorTabs').style.display = currentRole === 'vendor' ? 'block' : 'none';
-          document.getElementById('adminTabs').style.display = currentRole === 'admin' ? 'block' : 'none';
-          document.getElementById('enterpriseContent').style.display = currentRole === 'enterprise' ? 'block' : 'none';
-          document.getElementById('vendorContent').style.display = currentRole === 'vendor' ? 'block' : 'none';
-          document.getElementById('adminContent').style.display = currentRole === 'admin' ? 'block' : 'none';
-          if (currentRole === 'enterprise') renderEnterpriseDashboard();
-          else if (currentRole === 'vendor') renderVendorDashboard();
-          else renderAdminDashboard();
-        }
+      // ---- 8. Controller: role switch, routing, delegation --------------
+      function updateUI() {
+        $('currentUserDisplay').textContent = 'Logged in as: ' + state.userId + ' (' + state.role + ')';
+        var roles = ['enterprise', 'vendor', 'admin'];
+        roles.forEach(function (role) {
+          var show = state.role === role ? 'block' : 'none';
+          $(role + 'Tabs').style.display = show;
+          $(role + 'Content').style.display = show;
+        });
+        if (state.role === 'enterprise') renderEnterpriseDashboard();
+        else if (state.role === 'vendor') renderVendorDashboard();
+        else renderAdminDashboard();
+      }
 
-        // ---- Tab change handler ----
-        document.addEventListener('shown.bs.tab', function (e) {
-          var target = e.target.getAttribute('data-bs-target').replace('#','');
-          switch(target) {
-            case 'entDashboard': renderEnterpriseDashboard(); break;
-            case 'entProfile': renderEnterpriseProfile(); break;
-            case 'entDirectory': renderVendorDirectory(); break;
-            case 'entRelationships': renderRelationships(); break;
-            case 'entBookings': renderEnterpriseBookings(); break;
-            case 'entDocuments': renderEnterpriseDocuments(); break;
-            case 'venDashboard': renderVendorDashboard(); break;
-            case 'venProfile': renderVendorProfile(); break;
-            case 'venBookings': renderVendorBookings(); break;
-            case 'venDocuments': renderVendorDocuments(); break;
-            case 'admDashboard': renderAdminDashboard(); break;
-            case 'admManage': renderAdminRegistrations(); break;
-            case 'admAllData': renderAllData(); break;
-          }
+      // Map every tab pane to the view that renders it.
+      var TAB_RENDERERS = {
+        entDashboard: renderEnterpriseDashboard, entProfile: renderEnterpriseProfile,
+        entDirectory: renderVendorDirectory, entRelationships: renderRelationships,
+        entBookings: renderEnterpriseBookings, entDocuments: renderEnterpriseDocuments,
+        venDashboard: renderVendorDashboard, venProfile: renderVendorProfile,
+        venBookings: renderVendorBookings, venDocuments: renderVendorDocuments,
+        admDashboard: renderAdminDashboard, admManage: renderAdminRegistrations,
+        admAllData: renderAllData
+      };
+
+      // Map data-action attributes to handlers. Keeps markup free of inline
+      // JS and avoids re-binding window.* globals on every render.
+      var CLICK_ACTIONS = {
+        'goto-ent-profile': function () { document.querySelector('[data-bs-target="#entProfile"]').click(); },
+        'dir-search': function () { renderVendorDirectory(); },
+        'view-vendor': function (t) { viewVendor(t.dataset.id); },
+        'save-relationship': function () { saveRelationship(); },
+        'create-booking': function () { createBooking(); },
+        'upload-ent-doc': function () { uploadEnterpriseDoc(); },
+        'approve-entity': function (t) { setEntityStatus(t.dataset.type, t.dataset.id, 'approved'); },
+        'reject-entity': function (t) { setEntityStatus(t.dataset.type, t.dataset.id, 'rejected'); }
+      };
+
+      function bindEvents() {
+        // Cross-tab sync: if another tab (or devtools) rewrites our storage
+        // key, drop the cache so the next read re-parses from storage. This
+        // preserves the original's "always read from storage" semantics while
+        // keeping the single-render caching benefit.
+        window.addEventListener('storage', function (e) {
+          if (e.key === STORAGE_KEY) Store._cache = null;
         });
 
-        // ---- Initialization ----
+        // Role selector: previously defined (switchRole) but never wired up,
+        // so the dropdown did nothing. Restored here.
+        $('roleSelector').addEventListener('change', function (e) {
+          state.role = e.target.value;
+          state.userId = ROLE_USER[state.role] || ROLE_USER.enterprise;
+          updateUI();
+        });
+
+        // Re-render the pane that Bootstrap just activated.
+        document.addEventListener('shown.bs.tab', function (e) {
+          var target = e.target.getAttribute('data-bs-target').replace('#', '');
+          var renderer = TAB_RENDERERS[target];
+          if (renderer) renderer();
+        });
+
+        // One delegated click handler for every dynamic control.
+        document.addEventListener('click', function (e) {
+          var trigger = e.target.closest('[data-action]');
+          if (!trigger || trigger.tagName === 'FORM') return;
+          var handler = CLICK_ACTIONS[trigger.dataset.action];
+          if (!handler) return;
+          if (trigger.tagName === 'A') e.preventDefault();
+          handler(trigger);
+        });
+
+        // One delegated submit handler for form-based actions.
+        document.addEventListener('submit', function (e) {
+          if (e.target.dataset.action === 'create-enterprise') {
+            e.preventDefault();
+            createEnterprise();
+          }
+        });
+      }
+
+      // ---- 9. Bootstrap --------------------------------------------------
+      function seedDemoData() {
+        var d = Store.data;
+        if (d.enterprises.length || d.vendors.length) return;
+        var ent = {
+          id: Store.nextId('ent'), ownerId: 'user-ent-1', name: 'Green Acres Vineyard',
+          legalName: 'Green Acres LLC', description: 'Family-owned vineyard with wine tastings, events, and farm-to-table dinners.',
+          taxId: '12-3456789', website: 'https://greenacresvineyard.com', primaryContact: 'John Farmer',
+          phone: '410-555-0101', email: 'info@greenacresvineyard.com',
+          operatingHours: '{"mon":"9-5","tue":"9-5","wed":"9-5","thu":"9-5","fri":"9-5","sat":"10-6","sun":"12-5"}',
+          socialLinks: '{"facebook":"greenacresvineyard"}', activities: ['winery', 'events', 'retail'],
+          locations: [{ name: 'Main Estate', address: '123 Vineyard Ln', city: 'Frederick', state: 'MD', zip: '21701' }],
+          contacts: [{ firstName: 'John', lastName: 'Farmer', title: 'Owner', email: 'john@greenacresvineyard.com', phone: '410-555-0101', isPrimary: true }],
+          status: 'approved'
+        };
+        d.enterprises.push(ent);
+        var vend = {
+          id: Store.nextId('ven'), ownerId: 'user-ven-1', businessName: 'Bluegrass Strings',
+          description: 'Live bluegrass band for wineries and festivals.', website: 'https://bluegrassstrings.com',
+          phone: '240-555-0202', email: 'book@bluegrassstrings.com', travelRadius: 50,
+          availability: '{"weekdays":["fri","sat","sun"],"seasons":["spring","summer","fall"]}',
+          categories: ['musician'], status: 'approved'
+        };
+        d.vendors.push(vend);
+        var now = new Date().toISOString();
+        d.relationships.push({
+          enterpriseId: ent.id, vendorId: vend.id, status: 'preferred',
+          notes: 'Great band, always a hit at our summer concerts.',
+          createdBy: ent.ownerId, createdAt: now, updatedAt: now
+        });
+        Store.save();
+      }
+
+      function init() {
         seedDemoData();
-        document.getElementById('entDirectoryContent').innerHTML =
+        bindEvents();
+
+        // Static shell for the Vendor Directory tab (search + filter controls).
+        setHtml('entDirectoryContent',
           '<div class="row mb-3"><div class="col-md-4"><input class="form-control" id="dirSearch" placeholder="Search by name or description"></div>' +
           '<div class="col-md-3"><select class="form-select" id="dirCategory"><option value="">All Categories</option></select></div>' +
-          '<div class="col-md-2"><button class="btn btn-primary" onclick="window.renderVendorDirectory()">Search</button></div></div>' +
-          '<div id="dirResults"></div>';
-
-        // Expose globals needed by HTML onclick attributes
-        window.renderVendorDirectory = renderVendorDirectory;
-        window.renderRelationships = renderRelationships;
-        window.renderEnterpriseBookings = renderEnterpriseBookings;
-        window.renderEnterpriseDocuments = renderEnterpriseDocuments;
+          '<div class="col-md-2"><button class="btn btn-primary" data-action="dir-search">Search</button></div></div>' +
+          '<div id="dirResults"></div>');
 
         updateUI();
-        document.getElementById('appLoading').style.display = 'none';
+        $('appLoading').style.display = 'none';
         console.log('✅ FarmX MVP initialized successfully.');
+      }
+
+      // Safety net: never leave the loading overlay up if something throws
+      // before init() finishes hiding it.
+      setTimeout(function () {
+        var overlay = $('appLoading');
+        if (overlay) overlay.style.display = 'none';
+      }, LOAD_FALLBACK_MS);
+
+      try {
+        init();
       } catch (error) {
         console.error('❌ FarmX initialization error:', error);
-        document.getElementById('loadError').innerHTML = '<div class="alert alert-danger"><strong>Error:</strong> ' + error.message + '<br><small>See console for details.</small></div>';
+        $('loadError').innerHTML = '<div class="alert alert-danger"><strong>Error:</strong> ' +
+          esc(error.message) + '<br><small>See console for details.</small></div>';
       }
     })();
   </script>
