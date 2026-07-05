@@ -1,6 +1,6 @@
 import { state, loadAll, logActivity } from './state.js';
 import { toast } from './format.js';
-import { renderAll, renderVendorGrid, renderActivity, renderProfile, onProfileVendorChange } from './render.js';
+import { renderAll, renderVendorGrid, renderActivity, renderProfile, onProfileVendorChange, renderVendorSpotlight } from './render.js';
 import { delRec, editRec } from './records.js';
 import { selectTab, initTabs } from './navigation.js';
 import { createRecord, updateRecord, upsertRecord } from './api.js';
@@ -22,6 +22,7 @@ document.addEventListener('click',e=>{
 
 document.getElementById('vSearch').addEventListener('input',e=>renderVendorGrid(e.target.value));
 document.getElementById('v-select').addEventListener('change',onProfileVendorChange);
+document.getElementById('vSpotlightSelect').addEventListener('change',renderVendorSpotlight);
 
 document.getElementById('bookingForm').addEventListener('submit',async e=>{
   e.preventDefault();

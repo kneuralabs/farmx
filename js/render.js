@@ -30,6 +30,25 @@ export function renderVendorGrid(filter){
       <button class="cta ${active?'solid':'ghost'}" data-book="${v.id}">${cta}</button>
     </div>`;}).join('')||'<div class="empty" style="padding:14px 2px;">No vendors match your search.</div>';
 }
+// Renders the read-only detail panel for whichever vendor is chosen in the
+// spotlight dropdown — always pulled fresh from state, so edits made
+// elsewhere (profile form, admin edit modal) show up here immediately.
+export function renderVendorSpotlight(){
+  const sel=document.getElementById('vSpotlightSelect');
+  const detail=document.getElementById('vSpotlightDetail');
+  const v=state.vendors.find(x=>String(x.id)===sel.value)||state.vendors[0];
+  if(!v){ detail.innerHTML='<div class="empty" style="padding:6px 2px;">No vendors yet — add one below.</div>'; return; }
+  const initial=esc((v.name||'').trim().charAt(0).toUpperCase()||'?');
+  const openBookings=state.bookings.filter(b=>b.vendorId===v.id&&b.status!==BOOKING_STATUS.DECLINED).length;
+  const availWindow=v.availFrom||v.availTo?`${esc(v.availFrom||'—')} to ${esc(v.availTo||'—')}`:'No availability window set';
+  detail.innerHTML=`<div class="vcard${hiCls('vendor',v.id,'pop')}" style="margin-top:14px;max-width:320px;">
+    <div class="vtop"><div class="avatar" aria-hidden="true">${initial}</div><div class="vtop-right">${badge(v.stage)}</div></div>
+    <h4>${esc(v.name)}</h4><div class="cat">${esc(v.cat)}</div>
+    <div class="desc">${esc(v.desc)||'No description yet.'}</div>
+    <div class="desc">Availability: ${availWindow}</div>
+    <div class="desc">${openBookings} open booking${openBookings===1?'':'s'}</div>
+  </div>`;
+}
 function renderBookings(){
   document.getElementById('bookingCount').textContent=state.bookings.length;
   document.getElementById('bookingsRow').innerHTML=state.bookings.map(b=>{
@@ -74,6 +93,8 @@ function renderSelects(){
   refreshSelect('e-vendor',state.vendors,v=>v.id,v=>v.name,'No vendors');
   refreshSelect('v-select',state.vendors,v=>v.id,v=>v.name,'No vendors');
   if(document.getElementById('v-select').value!==String(lastProfileVendorId)){ fillProfileForm(); lastProfileVendorId=document.getElementById('v-select').value; }
+  refreshSelect('vSpotlightSelect',state.vendors,v=>v.id,v=>v.name,'No vendors');
+  renderVendorSpotlight();
   const pend=state.bookings.filter(b=>b.status===BOOKING_STATUS.PENDING);
   refreshSelect('v-req',pend,b=>b.id,b=>{const v=state.vendors.find(x=>x.id===b.vendorId);return (v?v.name:'Vendor')+' — '+b.event;},'No pending requests');
   refreshSelect('a-ent',state.enterprises,e=>e.id,e=>e.name,'No enterprises');
