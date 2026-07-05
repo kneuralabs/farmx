@@ -258,13 +258,10 @@
   <form method="dialog">
     <h3 class="modal-title" id="modalTitle"></h3>
     <p class="modal-body" id="modalBody" hidden></p>
-    <div class="field modal-field" id="modalInputWrap" hidden>
-      <label for="modalInput" id="modalInputLabel"></label>
-      <input type="text" id="modalInput">
-    </div>
+    <div class="form modal-fields" id="modalFields" hidden></div>
     <div class="modal-actions">
       <button type="submit" value="confirm" class="modal-btn solid" id="modalConfirm">Confirm</button>
-      <button type="submit" value="cancel" class="modal-btn" id="modalCancel">Cancel</button>
+      <button type="submit" value="cancel" class="modal-btn" id="modalCancel" formnovalidate>Cancel</button>
     </div>
   </form>
 </dialog>

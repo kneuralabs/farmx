@@ -5,7 +5,7 @@
 // store starts empty and is populated from Supabase by loadAll() on boot.
 
 import { supabase } from './supabaseClient.js';
-import { TABLES, ACTIVITY_LIMIT } from './constants.js';
+import { TABLES, ACTIVITY_LIMIT, VENDOR_STAGE, BOOKING_STATUS, ENTERPRISE_STATUS } from './constants.js';
 import { mapVendor, mapBooking, mapDoc, mapEnterprise, mapProfile, mapActivity } from './mappers.js';
 
 export const state = {
@@ -19,13 +19,44 @@ export const state = {
 
 // Record-type registry used by the shared edit/delete handlers. `arr()` returns
 // the current array reference each call so it stays correct after reassignment.
-// `table` names the matching Supabase table; the generic edit handler in
-// records.js writes to the `name`/`event` column, which matches the JS field.
+// `table` names the matching Supabase table. `fields` lists every editable
+// property for the generic edit modal in records.js — `key` is the JS/state
+// property name, `col` the matching Supabase column.
 export const TYPES = {
-  vendor:{arr:()=>state.vendors,label:'Vendor',table:TABLES.vendors},
-  booking:{arr:()=>state.bookings,label:'Booking',table:TABLES.bookings},
-  doc:{arr:()=>state.docs,label:'Document',table:TABLES.docs},
-  enterprise:{arr:()=>state.enterprises,label:'Enterprise',table:TABLES.enterprises}
+  vendor:{
+    arr:()=>state.vendors, label:'Vendor', table:TABLES.vendors,
+    fields:[
+      {key:'name', col:'name', label:'Business name', type:'text', required:true},
+      {key:'cat', col:'category', label:'Service category', type:'text', required:true},
+      {key:'stage', col:'stage', label:'Relationship stage', type:'select', options:[[VENDOR_STAGE.PENDING,'Pending'],[VENDOR_STAGE.ACTIVE,'Active'],[VENDOR_STAGE.PREFERRED,'Preferred'],[VENDOR_STAGE.ARCHIVED,'Archived']]},
+      {key:'availFrom', col:'available_from', label:'Available from', type:'date'},
+      {key:'availTo', col:'available_until', label:'Available until', type:'date'},
+      {key:'desc', col:'description', label:'Service description', type:'textarea', full:true}
+    ]
+  },
+  booking:{
+    arr:()=>state.bookings, label:'Booking', table:TABLES.bookings,
+    fields:[
+      {key:'event', col:'event', label:'Event', type:'text', required:true},
+      {key:'budget', col:'budget', label:'Budget (USD)', type:'number'},
+      {key:'status', col:'status', label:'Status', type:'select', options:[[BOOKING_STATUS.PENDING,'Awaiting reply'],[BOOKING_STATUS.CONFIRMED,'Confirmed'],[BOOKING_STATUS.DECLINED,'Declined']]}
+    ]
+  },
+  doc:{
+    arr:()=>state.docs, label:'Document', table:TABLES.docs,
+    fields:[
+      {key:'name', col:'name', label:'Document type', type:'text', required:true},
+      {key:'meta', col:'meta', label:'Details', type:'text'}
+    ]
+  },
+  enterprise:{
+    arr:()=>state.enterprises, label:'Enterprise', table:TABLES.enterprises,
+    fields:[
+      {key:'name', col:'name', label:'Enterprise name', type:'text', required:true},
+      {key:'type', col:'type', label:'Enterprise type', type:'text', required:true},
+      {key:'status', col:'status', label:'Decision', type:'select', options:[[ENTERPRISE_STATUS.PENDING,'Pending'],[ENTERPRISE_STATUS.ACTIVE,'Approve'],[ENTERPRISE_STATUS.REJECTED,'Reject']]}
+    ]
+  }
 };
 
 // Loads every table from Supabase and replaces the in-memory arrays. Throws

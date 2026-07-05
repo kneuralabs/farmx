@@ -2,7 +2,7 @@ import { state, TYPES, logActivity } from './state.js';
 import { toast } from './format.js';
 import { renderAll } from './render.js';
 import { deleteRecord, updateRecord } from './api.js';
-import { confirmDialog, promptDialog } from './modal.js';
+import { confirmDialog, formDialog } from './modal.js';
 
 export async function delRec(type,id){
   const t=TYPES[type]; const arr=t.arr(); const idx=arr.findIndex(r=>r.id===id);
@@ -21,13 +21,15 @@ export async function delRec(type,id){
 export async function editRec(type,id){
   const t=TYPES[type]; const rec=t.arr().find(r=>r.id===id);
   if(!rec) return;
-  const key=type==='booking'?'event':'name';
-  const val=await promptDialog('Edit '+t.label,{label:t.label,value:rec[key]});
-  if(!val) return;
-  const {error}=await updateRecord(t.table,id,{[key]:val});
+  const fields=t.fields.map(f=>({...f,value:rec[f.key]}));
+  const values=await formDialog('Edit '+t.label,fields);
+  if(!values) return;
+  const payload={};
+  for(const f of t.fields) payload[f.col]=values[f.key];
+  const {error}=await updateRecord(t.table,id,payload);
   if(error){ toast('Could not save — try again'); return; }
-  rec[key]=val;
-  await logActivity(t.label+' updated: '+val);
+  Object.assign(rec,values);
+  await logActivity(t.label+' updated: '+(rec.name||rec.event));
   toast(t.label+' updated');
   renderAll({type,id});
 }
