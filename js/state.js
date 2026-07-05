@@ -39,7 +39,7 @@ export async function loadAll(){
   ]);
   for(const res of [vendors,bookings,docs,enterprises,activity,profile]) if(res.error) throw res.error;
 
-  state.vendors=vendors.data.map(v=>({id:v.id,name:v.name,cat:v.category,desc:v.description,stage:v.stage}));
+  state.vendors=vendors.data.map(v=>({id:v.id,name:v.name,cat:v.category,desc:v.description,stage:v.stage,availFrom:v.available_from,availTo:v.available_until}));
   state.bookings=bookings.data.map(b=>({id:b.id,vendorId:b.vendor_id,event:b.event,status:b.status,budget:b.budget}));
   state.docs=docs.data.map(d=>({id:d.id,name:d.name,meta:d.meta,status:d.status}));
   state.enterprises=enterprises.data.map(e=>({id:e.id,name:e.name,type:e.type,status:e.status}));
