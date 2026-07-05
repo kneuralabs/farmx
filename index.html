@@ -254,6 +254,21 @@
 <footer>FarmX — connecting agritourism enterprises with vetted vendors · MVP interface preview</footer>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
+<dialog class="modal" id="modalDialog" aria-labelledby="modalTitle">
+  <form method="dialog">
+    <h3 class="modal-title" id="modalTitle"></h3>
+    <p class="modal-body" id="modalBody" hidden></p>
+    <div class="field modal-field" id="modalInputWrap" hidden>
+      <label for="modalInput" id="modalInputLabel"></label>
+      <input type="text" id="modalInput">
+    </div>
+    <div class="modal-actions">
+      <button type="submit" value="confirm" class="modal-btn solid" id="modalConfirm">Confirm</button>
+      <button type="submit" value="cancel" class="modal-btn" id="modalCancel">Cancel</button>
+    </div>
+  </form>
+</dialog>
+
 <script src="js/vendor/supabase.js"></script>
 <script type="module" src="js/main.js"></script>
 </body>

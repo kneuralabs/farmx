@@ -2,11 +2,13 @@ import { state, TYPES, logActivity } from './state.js';
 import { toast } from './format.js';
 import { renderAll } from './render.js';
 import { deleteRecord, updateRecord } from './api.js';
+import { confirmDialog, promptDialog } from './modal.js';
 
 export async function delRec(type,id){
   const t=TYPES[type]; const arr=t.arr(); const idx=arr.findIndex(r=>r.id===id);
   if(idx<0) return;
-  if(!confirm('Delete this '+t.label.toLowerCase()+'?')) return;
+  const ok=await confirmDialog("This can't be undone.",{title:'Delete this '+t.label.toLowerCase()+'?',confirmLabel:'Delete',danger:true});
+  if(!ok) return;
   const rec=arr[idx];
   const {error}=await deleteRecord(t.table,id);
   if(error){ toast('Could not delete — try again'); return; }
@@ -20,7 +22,7 @@ export async function editRec(type,id){
   const t=TYPES[type]; const rec=t.arr().find(r=>r.id===id);
   if(!rec) return;
   const key=type==='booking'?'event':'name';
-  const val=prompt('Edit '+t.label+':',rec[key]);
+  const val=await promptDialog('Edit '+t.label,{label:t.label,value:rec[key]});
   if(!val) return;
   const {error}=await updateRecord(t.table,id,{[key]:val});
   if(error){ toast('Could not save — try again'); return; }
