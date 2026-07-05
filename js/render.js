@@ -1,5 +1,6 @@
 import { state } from './state.js';
 import { esc, badge, actions, money } from './format.js';
+import { VENDOR_STAGE, BOOKING_STATUS, DOC_STATUS } from './constants.js';
 
 // {type,id} of the record that just changed — only it animates (scoped per
 // renderAll pass). hiCls appends the animation class to the matching record.
@@ -7,7 +8,7 @@ let highlight = null;
 function hiCls(type,id,cls){ return highlight&&highlight.type===type&&highlight.id===id?' '+cls:''; }
 
 function renderLedger(){
-  const stages=[['preferred','Preferred'],['active','Active'],['pending','Pending'],['archived','Archived']];
+  const stages=[[VENDOR_STAGE.PREFERRED,'Preferred'],[VENDOR_STAGE.ACTIVE,'Active'],[VENDOR_STAGE.PENDING,'Pending'],[VENDOR_STAGE.ARCHIVED,'Archived']];
   document.getElementById('ledger').innerHTML=stages.map(([key,label])=>{
     const items=state.vendors.filter(v=>v.stage===key);
     return `<div class="lcol"><div class="lcol-head"><span>${label}</span><span class="lcol-count">${items.length}</span></div><div class="lcol-body">`+
@@ -20,11 +21,11 @@ export function renderVendorGrid(filter){
   const list=state.vendors.filter(v=>!filter||v.name.toLowerCase().includes(filter)||v.cat.toLowerCase().includes(filter));
   document.getElementById('vendorCountLbl').textContent=state.vendors.length+' vendors listed';
   document.getElementById('vendorGrid').innerHTML=list.map(v=>{
-    const active=v.stage==='preferred'||v.stage==='active';
-    const cta=active?'Request booking':v.stage==='archived'?'Reconnect':'Send invitation';
+    const active=v.stage===VENDOR_STAGE.PREFERRED||v.stage===VENDOR_STAGE.ACTIVE;
+    const cta=active?'Request booking':v.stage===VENDOR_STAGE.ARCHIVED?'Reconnect':'Send invitation';
     const initial=esc((v.name||'').trim().charAt(0).toUpperCase()||'?');
     return `<div class="vcard${hiCls('vendor',v.id,'pop')}">
-      <div class="vtop"><div class="avatar" aria-hidden="true">${initial}</div><div class="vtop-right">${v.stage!=='archived'?badge(v.stage):''}${actions('vendor',v.id,v.name)}</div></div>
+      <div class="vtop"><div class="avatar" aria-hidden="true">${initial}</div><div class="vtop-right">${v.stage!==VENDOR_STAGE.ARCHIVED?badge(v.stage):''}${actions('vendor',v.id,v.name)}</div></div>
       <h4>${esc(v.name)}</h4><div class="cat">${esc(v.cat)}</div><div class="desc">${esc(v.desc)}</div>
       <button class="cta ${active?'solid':'ghost'}" data-book="${v.id}">${cta}</button>
     </div>`;}).join('')||'<div class="empty" style="padding:14px 2px;">No vendors match your search.</div>';
@@ -49,17 +50,17 @@ export function renderActivity(){
 let prevStats={};
 function statBlock(id,label,val){ const changed=prevStats[id]!==undefined&&prevStats[id]!==val; prevStats[id]=val; return `<div class="stat${changed?' flash':''}"><div class="num">${esc(val)}</div><div class="lbl">${esc(label)}</div></div>`; }
 function renderStats(){
-  const due=state.bookings.filter(b=>b.status!=='declined').reduce((s,b)=>s+(Number(b.budget)||0),0);
+  const due=state.bookings.filter(b=>b.status!==BOOKING_STATUS.DECLINED).reduce((s,b)=>s+(Number(b.budget)||0),0);
   document.getElementById('entStats').innerHTML=
-    statBlock('rel','Active relationships',state.vendors.filter(v=>v.stage==='preferred'||v.stage==='active').length)+
-    statBlock('pend','Pending bookings',state.bookings.filter(b=>b.status==='pending').length)+
-    statBlock('exp','Documents expiring',state.docs.filter(d=>d.status==='due').length)+
+    statBlock('rel','Active relationships',state.vendors.filter(v=>v.stage===VENDOR_STAGE.PREFERRED||v.stage===VENDOR_STAGE.ACTIVE).length)+
+    statBlock('pend','Pending bookings',state.bookings.filter(b=>b.status===BOOKING_STATUS.PENDING).length)+
+    statBlock('exp','Documents expiring',state.docs.filter(d=>d.status===DOC_STATUS.DUE).length)+
     statBlock('pay','Vendor payments due',money(due));
   document.getElementById('adminStats').innerHTML=
     statBlock('ent','Enterprises',state.enterprises.length)+
     statBlock('ven','Vendors',state.vendors.length)+
-    statBlock('bk','Active bookings',state.bookings.filter(b=>b.status!=='declined').length)+
-    statBlock('docrev','Docs needing review',state.docs.filter(d=>d.status==='due').length);
+    statBlock('bk','Active bookings',state.bookings.filter(b=>b.status!==BOOKING_STATUS.DECLINED).length)+
+    statBlock('docrev','Docs needing review',state.docs.filter(d=>d.status===DOC_STATUS.DUE).length);
 }
 
 let lastProfileVendorId=null;
@@ -73,7 +74,7 @@ function renderSelects(){
   refreshSelect('e-vendor',state.vendors,v=>v.id,v=>v.name,'No vendors');
   refreshSelect('v-select',state.vendors,v=>v.id,v=>v.name,'No vendors');
   if(document.getElementById('v-select').value!==String(lastProfileVendorId)){ fillProfileForm(); lastProfileVendorId=document.getElementById('v-select').value; }
-  const pend=state.bookings.filter(b=>b.status==='pending');
+  const pend=state.bookings.filter(b=>b.status===BOOKING_STATUS.PENDING);
   refreshSelect('v-req',pend,b=>b.id,b=>{const v=state.vendors.find(x=>x.id===b.vendorId);return (v?v.name:'Vendor')+' — '+b.event;},'No pending requests');
   refreshSelect('a-ent',state.enterprises,e=>e.id,e=>e.name,'No enterprises');
 }

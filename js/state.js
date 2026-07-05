@@ -5,6 +5,8 @@
 // store starts empty and is populated from Supabase by loadAll() on boot.
 
 import { supabase } from './supabaseClient.js';
+import { TABLES, ACTIVITY_LIMIT } from './constants.js';
+import { mapVendor, mapBooking, mapDoc, mapEnterprise, mapProfile, mapActivity } from './mappers.js';
 
 export const state = {
   vendors: [],
@@ -20,38 +22,38 @@ export const state = {
 // `table` names the matching Supabase table; the generic edit handler in
 // records.js writes to the `name`/`event` column, which matches the JS field.
 export const TYPES = {
-  vendor:{arr:()=>state.vendors,label:'Vendor',table:'farmx_vendors'},
-  booking:{arr:()=>state.bookings,label:'Booking',table:'farmx_bookings'},
-  doc:{arr:()=>state.docs,label:'Document',table:'farmx_docs'},
-  enterprise:{arr:()=>state.enterprises,label:'Enterprise',table:'farmx_enterprises'}
+  vendor:{arr:()=>state.vendors,label:'Vendor',table:TABLES.vendors},
+  booking:{arr:()=>state.bookings,label:'Booking',table:TABLES.bookings},
+  doc:{arr:()=>state.docs,label:'Document',table:TABLES.docs},
+  enterprise:{arr:()=>state.enterprises,label:'Enterprise',table:TABLES.enterprises}
 };
 
 // Loads every table from Supabase and replaces the in-memory arrays. Throws
 // on failure so the caller can decide how to surface it to the user.
 export async function loadAll(){
   const [vendors,bookings,docs,enterprises,activity,profile]=await Promise.all([
-    supabase.from('farmx_vendors').select('*').order('id'),
-    supabase.from('farmx_bookings').select('*').order('id'),
-    supabase.from('farmx_docs').select('*').order('id'),
-    supabase.from('farmx_enterprises').select('*').order('id'),
-    supabase.from('farmx_activity').select('*').order('created_at',{ascending:false}).limit(8),
-    supabase.from('farmx_profile').select('*').eq('id',1).maybeSingle()
+    supabase.from(TABLES.vendors).select('*').order('id'),
+    supabase.from(TABLES.bookings).select('*').order('id'),
+    supabase.from(TABLES.docs).select('*').order('id'),
+    supabase.from(TABLES.enterprises).select('*').order('id'),
+    supabase.from(TABLES.activity).select('*').order('created_at',{ascending:false}).limit(ACTIVITY_LIMIT),
+    supabase.from(TABLES.profile).select('*').eq('id',1).maybeSingle()
   ]);
   for(const res of [vendors,bookings,docs,enterprises,activity,profile]) if(res.error) throw res.error;
 
-  state.vendors=vendors.data.map(v=>({id:v.id,name:v.name,cat:v.category,desc:v.description,stage:v.stage,availFrom:v.available_from,availTo:v.available_until}));
-  state.bookings=bookings.data.map(b=>({id:b.id,vendorId:b.vendor_id,event:b.event,status:b.status,budget:b.budget}));
-  state.docs=docs.data.map(d=>({id:d.id,name:d.name,meta:d.meta,status:d.status}));
-  state.enterprises=enterprises.data.map(e=>({id:e.id,name:e.name,type:e.type,status:e.status}));
-  state.activity=activity.data.map(a=>({msg:a.msg,time:new Date(a.created_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}));
-  state.profile=profile.data?{name:profile.data.name,type:profile.data.type}:{name:'',type:''};
+  state.vendors=vendors.data.map(mapVendor);
+  state.bookings=bookings.data.map(mapBooking);
+  state.docs=docs.data.map(mapDoc);
+  state.enterprises=enterprises.data.map(mapEnterprise);
+  state.activity=activity.data.map(mapActivity);
+  state.profile=mapProfile(profile.data);
 }
 
 // Appends to the local activity feed immediately (so the UI never waits on
 // the network for its own audit trail) and persists in the background.
 export async function logActivity(msg){
   state.activity.unshift({msg,time:new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})});
-  if(state.activity.length>8) state.activity.pop();
-  const {error}=await supabase.from('farmx_activity').insert({msg});
+  if(state.activity.length>ACTIVITY_LIMIT) state.activity.pop();
+  const {error}=await supabase.from(TABLES.activity).insert({msg});
   if(error) console.error('Failed to persist activity log entry:',error);
 }
