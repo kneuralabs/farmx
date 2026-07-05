@@ -92,6 +92,17 @@
     <div class="vgrid" id="vendorGrid"></div>
 
     <div class="card stack">
+      <h3 class="with-hint">Register as a vendor <span class="role-pill">You are the vendor</span></h3>
+      <p class="hint">New vendors are added straight to the directory in <b>Pending</b> status until an administrator reviews the listing.</p>
+      <form class="form" id="registerForm">
+        <div class="field"><label for="r-name">Business name</label><input id="r-name" type="text" placeholder="e.g. Hollow Creek Bluegrass" required></div>
+        <div class="field"><label for="r-cat">Service category</label><input id="r-cat" type="text" placeholder="e.g. Live music, Catering" required></div>
+        <div class="field full"><label for="r-desc">Service description</label><textarea id="r-desc" placeholder="Tell enterprises what you offer…"></textarea></div>
+        <div class="field full"><button class="submit" type="submit">Submit registration</button></div>
+      </form>
+    </div>
+
+    <div class="card stack">
       <h3 class="with-hint">Update availability &amp; profile <span class="role-pill">You are the vendor</span></h3>
       <p class="hint">Edits here update the enterprise ledger and directory right away.</p>
       <form class="form" id="profileForm">
@@ -196,9 +207,10 @@
     <div class="card stack">
       <h3>Vendor directory</h3>
       <div>
-        <div class="step"><div class="step-n">1</div><div><h4>Search or filter</h4><p>Use the search bar to narrow the vendor list by name or category.</p></div></div>
-        <div class="step"><div class="step-n">2</div><div><h4>Update your profile</h4><p>Changes reflect instantly in the enterprise ledger and vendor grid.</p></div></div>
-        <div class="step"><div class="step-n">3</div><div><h4>Respond to requests</h4><p>Accepting or declining updates the booking status back on the enterprise dashboard.</p></div></div>
+        <div class="step"><div class="step-n">1</div><div><h4>Register your business</h4><p>New vendors submit a name, category and description and land in the directory as Pending, ready for an admin to review.</p></div></div>
+        <div class="step"><div class="step-n">2</div><div><h4>Search or filter</h4><p>Use the search bar to narrow the vendor list by name or category.</p></div></div>
+        <div class="step"><div class="step-n">3</div><div><h4>Update your profile</h4><p>Changes reflect instantly in the enterprise ledger and vendor grid.</p></div></div>
+        <div class="step"><div class="step-n">4</div><div><h4>Respond to requests</h4><p>Accepting or declining updates the booking status back on the enterprise dashboard.</p></div></div>
       </div>
     </div>
 

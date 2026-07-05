@@ -47,6 +47,19 @@ document.getElementById('docForm').addEventListener('submit',async e=>{
   toast('Document submitted for review');
   e.target.reset(); renderAll({type:'doc',id:data.id});
 });
+document.getElementById('registerForm').addEventListener('submit',async e=>{
+  e.preventDefault();
+  const name=document.getElementById('r-name').value.trim();
+  const cat=document.getElementById('r-cat').value.trim();
+  const desc=document.getElementById('r-desc').value.trim();
+  if(!name||!cat) return;
+  const {data,error}=await supabase.from('farmx_vendors').insert({name,category:cat,description:desc,stage:'pending'}).select().single();
+  if(error){ toast('Could not submit registration'); return; }
+  state.vendors.push({id:data.id,name:data.name,cat:data.category,desc:data.description,stage:data.stage});
+  await logActivity('New vendor registered: '+name);
+  toast('Vendor registered — pending admin review');
+  e.target.reset(); renderAll({type:'vendor',id:data.id});
+});
 document.getElementById('profileForm').addEventListener('submit',async e=>{
   e.preventDefault();
   const v=state.vendors.find(x=>x.id==document.getElementById('v-select').value);
