@@ -163,6 +163,25 @@ tr.flash td{ animation:flash .8s ease; }
 
 footer{ text-align:center; padding:30px; padding-bottom:max(30px,env(safe-area-inset-bottom)); font-size:12.5px; color:var(--faint); }
 
+/* Modal */
+dialog.modal{ position:fixed; inset:0; margin:auto; border:none; border-radius:var(--r); box-shadow:0 20px 60px rgba(35,37,30,.22); padding:26px; width:100%; max-width:380px; height:fit-content; background:#fff; color:var(--ink); }
+dialog.modal::backdrop{ background:rgba(35,37,30,.32); }
+dialog.modal[open]{ animation:modal-in .18s var(--ease); }
+dialog.modal[open]::backdrop{ animation:fx-fade-in .18s var(--ease); }
+@keyframes modal-in{ from{ opacity:0; transform:translateY(10px) scale(.98); } to{ opacity:1; transform:none; } }
+@keyframes fx-fade-in{ from{ opacity:0; } to{ opacity:1; } }
+.modal-title{ font-size:17px; font-weight:700; letter-spacing:-.01em; margin-bottom:8px; }
+.modal-body{ font-size:14px; color:var(--muted); line-height:1.5; margin-bottom:18px; }
+.modal-field{ margin-bottom:20px; }
+.modal-actions{ display:flex; flex-direction:row-reverse; justify-content:flex-start; gap:10px; }
+.modal-btn{ font-size:14px; font-weight:600; cursor:pointer; border:1px solid var(--line); border-radius:999px; padding:10px 20px; background:#fff; color:var(--ink); transition:.15s; }
+.modal-btn:hover{ background:var(--accent-tint); border-color:var(--accent); color:var(--accent-ink); }
+.modal-btn.solid{ border:none; background:var(--accent); color:#fff; }
+.modal-btn.solid:hover{ background:color-mix(in oklab, var(--accent) 84%, #000); }
+.modal-btn.solid.danger{ background:#B5654A; }
+.modal-btn.solid.danger:hover{ background:color-mix(in oklab, #B5654A 84%, #000); }
+@media(max-width:480px){ dialog.modal{ padding:20px; max-width:calc(100vw - 32px); } }
+
 /* Toast */
 .toast{ position:fixed; left:50%; bottom:max(24px,env(safe-area-inset-bottom)); transform:translate(-50%,180%); background:#23251E; color:#F4F3EC; padding:12px 22px; border-radius:999px; font-size:14px; box-shadow:0 10px 28px rgba(35,37,30,.18); z-index:60; transition:transform .35s var(--ease); max-width:calc(100vw - 32px); text-align:center; }
 .toast.show{ transform:translate(-50%,0); }
