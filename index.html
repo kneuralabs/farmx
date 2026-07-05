@@ -32,9 +32,9 @@
     <div class="view-head">
       <div>
         <div class="eyebrow">Enterprise dashboard</div>
-        <h2>Bramblewood Orchard &amp; Cidery</h2>
+        <h2 id="entProfileName">Set up your business profile</h2>
       </div>
-      <div class="view-sub">Enterprise ID&nbsp; FX-0142</div>
+      <div class="view-sub" id="entProfileType"></div>
     </div>
 
     <div class="stats" id="entStats"></div>
@@ -51,6 +51,16 @@
         <h3>Documents</h3>
         <div id="docsRow"></div>
       </div>
+    </div>
+
+    <div class="card stack">
+      <h3 class="with-hint">Business profile <span class="role-pill">You are the enterprise</span></h3>
+      <p class="hint">This name and type appear at the top of your dashboard.</p>
+      <form class="form" id="profileEntForm">
+        <div class="field"><label for="ent-name">Business name</label><input id="ent-name" type="text" placeholder="e.g. Green Gable Farm Market" required></div>
+        <div class="field"><label for="ent-type">Business type</label><input id="ent-type" type="text" placeholder="e.g. Orchard & Cidery" required></div>
+        <div class="field full"><button class="submit" type="submit">Save business profile</button></div>
+      </form>
     </div>
 
     <div class="card stack">
@@ -90,6 +100,18 @@
 
     <input class="search" type="text" id="vSearch" placeholder="Search vendors — try 'live music' or 'caterer'" aria-label="Search vendors">
     <div class="vgrid" id="vendorGrid"></div>
+
+    <div class="card stack">
+      <h3 class="with-hint">Add a vendor <span class="role-pill">You are the vendor</span></h3>
+      <p class="hint">List your business so enterprises can find and book you.</p>
+      <form class="form" id="addVendorForm">
+        <div class="field"><label for="nv-name">Business name</label><input id="nv-name" type="text" required></div>
+        <div class="field"><label for="nv-cat">Service category</label><input id="nv-cat" type="text" placeholder="e.g. Live music" required></div>
+        <div class="field"><label for="nv-stage">Relationship stage</label><select id="nv-stage"><option value="pending">Pending</option><option value="active">Active</option><option value="preferred">Preferred</option><option value="archived">Archived</option></select></div>
+        <div class="field full"><label for="nv-desc">Service description</label><textarea id="nv-desc" placeholder="What do you offer?"></textarea></div>
+        <div class="field full"><button class="submit" type="submit">Add vendor</button></div>
+      </form>
+    </div>
 
     <div class="card stack">
       <h3 class="with-hint">Update availability &amp; profile <span class="role-pill">You are the vendor</span></h3>
@@ -142,6 +164,16 @@
           <tbody id="entTable"></tbody>
         </table>
       </div>
+    </div>
+
+    <div class="card stack">
+      <h3 class="with-hint">Add an enterprise <span class="role-pill">You are the admin</span></h3>
+      <p class="hint">Register a new enterprise application for review.</p>
+      <form class="form" id="addEnterpriseForm">
+        <div class="field"><label for="ne-name">Enterprise name</label><input id="ne-name" type="text" required></div>
+        <div class="field"><label for="ne-type">Enterprise type</label><input id="ne-type" type="text" placeholder="e.g. Winery" required></div>
+        <div class="field full"><button class="submit" type="submit">Add enterprise</button></div>
+      </form>
     </div>
 
     <div class="card stack">

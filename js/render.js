@@ -1,5 +1,5 @@
 import { state } from './state.js';
-import { esc, badge, actions } from './format.js';
+import { esc, badge, actions, money } from './format.js';
 
 // {type,id} of the record that just changed — only it animates (scoped per
 // renderAll pass). hiCls appends the animation class to the matching record.
@@ -49,11 +49,12 @@ export function renderActivity(){
 let prevStats={};
 function statBlock(id,label,val){ const changed=prevStats[id]!==undefined&&prevStats[id]!==val; prevStats[id]=val; return `<div class="stat${changed?' flash':''}"><div class="num">${esc(val)}</div><div class="lbl">${esc(label)}</div></div>`; }
 function renderStats(){
+  const due=state.bookings.filter(b=>b.status!=='declined').reduce((s,b)=>s+(Number(b.budget)||0),0);
   document.getElementById('entStats').innerHTML=
     statBlock('rel','Active relationships',state.vendors.filter(v=>v.stage==='preferred'||v.stage==='active').length)+
     statBlock('pend','Pending bookings',state.bookings.filter(b=>b.status==='pending').length)+
     statBlock('exp','Documents expiring',state.docs.filter(d=>d.status==='due').length)+
-    '<div class="stat"><div class="num">$4,850</div><div class="lbl">Vendor payments due</div></div>';
+    statBlock('pay','Vendor payments due',money(due));
   document.getElementById('adminStats').innerHTML=
     statBlock('ent','Enterprises',state.enterprises.length)+
     statBlock('ven','Vendors',state.vendors.length)+
@@ -90,8 +91,16 @@ export function onProfileVendorChange(){
   lastProfileVendorId=document.getElementById('v-select').value;
 }
 
+export function renderProfile(){
+  document.getElementById('entProfileName').textContent=state.profile.name||'Set up your business profile';
+  document.getElementById('entProfileType').textContent=state.profile.type||'Add your business type below';
+  const nameEl=document.getElementById('ent-name'), typeEl=document.getElementById('ent-type');
+  if(document.activeElement!==nameEl) nameEl.value=state.profile.name;
+  if(document.activeElement!==typeEl) typeEl.value=state.profile.type;
+}
+
 export function renderAll(hl){
   highlight = hl || null; // scope the pop/flash animation to the one record that changed
-  renderLedger(); renderVendorGrid(document.getElementById('vSearch').value); renderBookings(); renderDocs(); renderEntTable(); renderActivity(); renderStats(); renderSelects();
+  renderLedger(); renderVendorGrid(document.getElementById('vSearch').value); renderBookings(); renderDocs(); renderEntTable(); renderActivity(); renderStats(); renderSelects(); renderProfile();
   highlight = null;
 }
