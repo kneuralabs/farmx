@@ -9,4 +9,6 @@ export function bLabel(s){ return {confirmed:'Confirmed',pending:'Awaiting reply
 export function badge(status){ return `<span class="badge ${bClass(status)}">${esc(bLabel(status))}</span>`; }
 export function actions(type,id,name){ const n=esc(name); return `<div class="actions"><button class="icon-btn" data-edit="${type}:${id}" aria-label="Edit ${n}" title="Edit">✎</button><button class="icon-btn del" data-del="${type}:${id}" aria-label="Delete ${n}" title="Delete">✕</button></div>`; }
 
+export function money(n){ return '$'+Number(n||0).toLocaleString(); }
+
 export function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'),2200); }

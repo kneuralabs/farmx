@@ -1,6 +1,6 @@
 import { state, loadAll, logActivity } from './state.js';
 import { toast } from './format.js';
-import { renderAll, renderVendorGrid, renderActivity, onProfileVendorChange } from './render.js';
+import { renderAll, renderVendorGrid, renderActivity, renderProfile, onProfileVendorChange } from './render.js';
 import { delRec, editRec } from './records.js';
 import { selectTab, initTabs } from './navigation.js';
 import { supabase } from './supabaseClient.js';
@@ -27,10 +27,11 @@ document.getElementById('bookingForm').addEventListener('submit',async e=>{
   const v=state.vendors.find(x=>x.id===vId);
   const service=document.getElementById('e-service').value;
   const date=document.getElementById('e-date').value;
+  const budget=document.getElementById('e-budget').value;
   const event=service+' — '+date;
-  const {data,error}=await supabase.from('farmx_bookings').insert({vendor_id:vId,event,status:'pending'}).select().single();
+  const {data,error}=await supabase.from('farmx_bookings').insert({vendor_id:vId,event,status:'pending',budget:budget===''?null:+budget}).select().single();
   if(error){ toast('Could not send booking request'); return; }
-  state.bookings.push({id:data.id,vendorId:data.vendor_id,event:data.event,status:data.status});
+  state.bookings.push({id:data.id,vendorId:data.vendor_id,event:data.event,status:data.status,budget:data.budget});
   await logActivity('Booking requested: '+(v?v.name:'')+' — '+service);
   toast('Booking request sent');
   e.target.reset(); renderAll({type:'booking',id:data.id});
@@ -46,19 +47,6 @@ document.getElementById('docForm').addEventListener('submit',async e=>{
   await logActivity('Document uploaded: '+type);
   toast('Document submitted for review');
   e.target.reset(); renderAll({type:'doc',id:data.id});
-});
-document.getElementById('registerForm').addEventListener('submit',async e=>{
-  e.preventDefault();
-  const name=document.getElementById('r-name').value.trim();
-  const cat=document.getElementById('r-cat').value.trim();
-  const desc=document.getElementById('r-desc').value.trim();
-  if(!name||!cat) return;
-  const {data,error}=await supabase.from('farmx_vendors').insert({name,category:cat,description:desc,stage:'pending'}).select().single();
-  if(error){ toast('Could not submit registration'); return; }
-  state.vendors.push({id:data.id,name:data.name,cat:data.category,desc:data.description,stage:data.stage});
-  await logActivity('New vendor registered: '+name);
-  toast('Vendor registered — pending admin review');
-  e.target.reset(); renderAll({type:'vendor',id:data.id});
 });
 document.getElementById('profileForm').addEventListener('submit',async e=>{
   e.preventDefault();
@@ -108,6 +96,41 @@ document.getElementById('roleForm').addEventListener('submit',async e=>{
   await logActivity('Role granted: '+role+' → '+email);
   toast('Access granted');
   e.target.reset(); renderActivity();
+});
+document.getElementById('profileEntForm').addEventListener('submit',async e=>{
+  e.preventDefault();
+  const name=document.getElementById('ent-name').value;
+  const type=document.getElementById('ent-type').value;
+  const {error}=await supabase.from('farmx_profile').upsert({id:1,name,type});
+  if(error){ toast('Could not save business profile'); return; }
+  state.profile={name,type};
+  await logActivity('Business profile updated: '+name);
+  toast('Business profile saved');
+  renderProfile();
+});
+document.getElementById('addVendorForm').addEventListener('submit',async e=>{
+  e.preventDefault();
+  const name=document.getElementById('nv-name').value;
+  const cat=document.getElementById('nv-cat').value;
+  const stage=document.getElementById('nv-stage').value;
+  const desc=document.getElementById('nv-desc').value;
+  const {data,error}=await supabase.from('farmx_vendors').insert({name,category:cat,description:desc,stage}).select().single();
+  if(error){ toast('Could not add vendor'); return; }
+  state.vendors.push({id:data.id,name:data.name,cat:data.category,desc:data.description,stage:data.stage});
+  await logActivity('Vendor added: '+name);
+  toast('Vendor added');
+  e.target.reset(); renderAll({type:'vendor',id:data.id});
+});
+document.getElementById('addEnterpriseForm').addEventListener('submit',async e=>{
+  e.preventDefault();
+  const name=document.getElementById('ne-name').value;
+  const type=document.getElementById('ne-type').value;
+  const {data,error}=await supabase.from('farmx_enterprises').insert({name,type,status:'pending'}).select().single();
+  if(error){ toast('Could not add enterprise'); return; }
+  state.enterprises.push({id:data.id,name:data.name,type:data.type,status:data.status});
+  await logActivity('Enterprise added: '+name);
+  toast('Enterprise added');
+  e.target.reset(); renderAll({type:'enterprise',id:data.id});
 });
 
 async function boot(){

@@ -11,7 +11,8 @@ export const state = {
   bookings: [],
   docs: [],
   enterprises: [],
-  activity: []
+  activity: [],
+  profile: { name:'', type:'' }
 };
 
 // Record-type registry used by the shared edit/delete handlers. `arr()` returns
@@ -28,20 +29,22 @@ export const TYPES = {
 // Loads every table from Supabase and replaces the in-memory arrays. Throws
 // on failure so the caller can decide how to surface it to the user.
 export async function loadAll(){
-  const [vendors,bookings,docs,enterprises,activity]=await Promise.all([
+  const [vendors,bookings,docs,enterprises,activity,profile]=await Promise.all([
     supabase.from('farmx_vendors').select('*').order('id'),
     supabase.from('farmx_bookings').select('*').order('id'),
     supabase.from('farmx_docs').select('*').order('id'),
     supabase.from('farmx_enterprises').select('*').order('id'),
-    supabase.from('farmx_activity').select('*').order('created_at',{ascending:false}).limit(8)
+    supabase.from('farmx_activity').select('*').order('created_at',{ascending:false}).limit(8),
+    supabase.from('farmx_profile').select('*').eq('id',1).maybeSingle()
   ]);
-  for(const res of [vendors,bookings,docs,enterprises,activity]) if(res.error) throw res.error;
+  for(const res of [vendors,bookings,docs,enterprises,activity,profile]) if(res.error) throw res.error;
 
   state.vendors=vendors.data.map(v=>({id:v.id,name:v.name,cat:v.category,desc:v.description,stage:v.stage}));
-  state.bookings=bookings.data.map(b=>({id:b.id,vendorId:b.vendor_id,event:b.event,status:b.status}));
+  state.bookings=bookings.data.map(b=>({id:b.id,vendorId:b.vendor_id,event:b.event,status:b.status,budget:b.budget}));
   state.docs=docs.data.map(d=>({id:d.id,name:d.name,meta:d.meta,status:d.status}));
   state.enterprises=enterprises.data.map(e=>({id:e.id,name:e.name,type:e.type,status:e.status}));
   state.activity=activity.data.map(a=>({msg:a.msg,time:new Date(a.created_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}));
+  state.profile=profile.data?{name:profile.data.name,type:profile.data.type}:{name:'',type:''};
 }
 
 // Appends to the local activity feed immediately (so the UI never waits on
