@@ -83,6 +83,8 @@ export function fillProfileForm(){
   document.getElementById('v-name').value=v.name;
   document.getElementById('v-cat').value=v.cat;
   document.getElementById('v-desc').value=v.desc;
+  document.getElementById('v-from').value=v.availFrom||'';
+  document.getElementById('v-to').value=v.availTo||'';
 }
 // Called when the vendor <select> changes: always refill the form and remember
 // the selection so the next renderSelects pass leaves the user's edits alone.

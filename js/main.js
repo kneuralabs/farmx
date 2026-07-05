@@ -55,9 +55,11 @@ document.getElementById('profileForm').addEventListener('submit',async e=>{
   const name=document.getElementById('v-name').value||v.name;
   const cat=document.getElementById('v-cat').value||v.cat;
   const desc=document.getElementById('v-desc').value||v.desc;
-  const {error}=await supabase.from('farmx_vendors').update({name,category:cat,description:desc}).eq('id',v.id);
+  const from=document.getElementById('v-from').value||null;
+  const to=document.getElementById('v-to').value||null;
+  const {error}=await supabase.from('farmx_vendors').update({name,category:cat,description:desc,available_from:from,available_until:to}).eq('id',v.id);
   if(error){ toast('Could not save profile'); return; }
-  v.name=name; v.cat=cat; v.desc=desc;
+  v.name=name; v.cat=cat; v.desc=desc; v.availFrom=from; v.availTo=to;
   await logActivity('Vendor profile updated: '+v.name);
   toast('Profile saved');
   renderAll({type:'vendor',id:v.id});
